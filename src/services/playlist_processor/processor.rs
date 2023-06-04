@@ -20,7 +20,7 @@ pub(crate) struct AudioTrackProcessingData {
 impl AudioTrackProcessingData {
     pub(crate) fn get_step(&self) -> AudioTrackProcessingStep {
         if self.radioterio_channel_id.is_some() {
-            return AudioTrackProcessingStep::Done;
+            return AudioTrackProcessingStep::End;
         }
 
         if self.radioterio_track_id.is_some() {
@@ -49,7 +49,13 @@ pub(crate) enum AudioTrackProcessingStep {
     CheckDownload,
     Upload,
     AddToChannel,
-    Done,
+    End,
+}
+
+impl AudioTrackProcessingStep {
+    pub(crate) fn is_final(&self) -> bool {
+        matches!(self, AudioTrackProcessingStep::End)
+    }
 }
 
 pub(crate) struct PlaylistProcessingData {
@@ -60,8 +66,12 @@ pub(crate) struct PlaylistProcessingData {
 
 impl PlaylistProcessingData {
     pub(crate) fn get_step(&self) -> PlaylistProcessingStep {
-        if self.audio_tracks.is_some() {
-            return PlaylistProcessingStep::DownloadingTracks;
+        if let Some(audio_tracks) = &self.audio_tracks {
+            return if audio_tracks.iter().all(|track| track.get_step().is_final()) {
+                PlaylistProcessingStep::Final
+            } else {
+                PlaylistProcessingStep::DownloadingTracks
+            };
         }
 
         if self.filtered_tracks.is_some() {
@@ -81,6 +91,13 @@ pub(crate) enum PlaylistProcessingStep {
     FilterNewTracks,
     StartDownloadingTracks,
     DownloadingTracks,
+    Final,
+}
+
+impl PlaylistProcessingStep {
+    pub(crate) fn is_final(&self) -> bool {
+        matches!(self, PlaylistProcessingStep::Final)
+    }
 }
 
 pub(crate) struct PlaylistProcessor {
