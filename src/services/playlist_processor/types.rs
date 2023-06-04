@@ -27,9 +27,7 @@ pub(crate) enum TrackDownloaderError {
 
 #[derive(Clone)]
 pub(crate) struct PlaylistEntry {
-    pub(crate) title: String,
-    pub(crate) artist: String,
-    pub(crate) album: String,
+    pub(crate) metadata: AudioMetadata,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -56,10 +54,11 @@ pub(crate) enum RadioManagerError {
 }
 
 // Audio Metadata Service
+#[derive(Clone)]
 pub(crate) struct AudioMetadata {
-    title: String,
-    artist: String,
-    album: String,
+    pub(crate) title: String,
+    pub(crate) artist: String,
+    pub(crate) album: String,
 }
 
 #[derive(Debug, thiserror::Error)]

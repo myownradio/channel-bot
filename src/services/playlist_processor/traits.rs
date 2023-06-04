@@ -36,7 +36,7 @@ pub(crate) trait RadioManager {
     async fn add_track_to_playlist(
         &self,
         playlist_id: &str,
-        path_to_track: &str,
+        file_path: &str,
     ) -> Result<(), RadioManagerError>;
 }
 
@@ -44,7 +44,7 @@ pub(crate) trait RadioManager {
 pub(crate) trait MetadataService {
     async fn get_audio_metadata(
         &self,
-        path_to_new_track: &str,
+        file_path: &str,
     ) -> Result<Option<AudioMetadata>, MetadataServiceError>;
 }
 

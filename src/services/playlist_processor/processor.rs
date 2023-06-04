@@ -2,16 +2,18 @@ use crate::services::playlist_processor::traits::{
     MetadataService, MusicSearchService, PlaylistProvider, RadioManager, TrackDownloader,
 };
 use crate::services::playlist_processor::types::{
-    DownloadId, DownloadingStatus, MetadataServiceError, MusicSearchServiceError, PlaylistEntry,
-    PlaylistProviderError, RadioManagerError, TopicId, TrackDownloadEntry, TrackDownloaderError,
+    AudioMetadata, DownloadId, DownloadingStatus, MetadataServiceError, MusicSearchServiceError,
+    PlaylistEntry, PlaylistProviderError, RadioManagerError, TopicId, TrackDownloadEntry,
+    TrackDownloaderError,
 };
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::sync::Arc;
-use tracing::warn;
+use tracing::{debug, info, instrument, warn};
 
 pub(crate) struct AudioTrackProcessingData {
+    metadata: AudioMetadata,
     tried_topics: Vec<TopicId>,
-    current_download: Option<TrackDownloadEntry>,
+    current_download_id: Option<DownloadId>,
     path_to_audio_file: Option<String>,
     radioterio_track_id: Option<u64>,
     radioterio_channel_id: Option<u64>,
@@ -20,7 +22,7 @@ pub(crate) struct AudioTrackProcessingData {
 impl AudioTrackProcessingData {
     pub(crate) fn get_step(&self) -> AudioTrackProcessingStep {
         if self.radioterio_channel_id.is_some() {
-            return AudioTrackProcessingStep::End;
+            return AudioTrackProcessingStep::Finish;
         }
 
         if self.radioterio_track_id.is_some() {
@@ -31,11 +33,8 @@ impl AudioTrackProcessingData {
             return AudioTrackProcessingStep::Upload;
         }
 
-        if let Some(current_download) = &self.current_download {
-            return match current_download.status {
-                DownloadingStatus::Finished => AudioTrackProcessingStep::CheckDownload,
-                DownloadingStatus::Downloading => AudioTrackProcessingStep::Downloading,
-            };
+        if self.current_download_id.is_some() {
+            AudioTrackProcessingStep::Downloading;
         }
 
         AudioTrackProcessingStep::SearchAlbum
@@ -43,32 +42,34 @@ impl AudioTrackProcessingData {
 }
 
 pub(crate) enum AudioTrackProcessingStep {
-    Initial,
     SearchAlbum,
     Downloading,
-    CheckDownload,
     Upload,
     AddToChannel,
-    End,
+    Finish,
 }
 
 impl AudioTrackProcessingStep {
-    pub(crate) fn is_final(&self) -> bool {
-        matches!(self, AudioTrackProcessingStep::End)
+    pub(crate) fn is_finish(&self) -> bool {
+        matches!(self, AudioTrackProcessingStep::Finish)
     }
 }
 
 pub(crate) struct PlaylistProcessingData {
     unfiltered_tracks: Option<Vec<PlaylistEntry>>,
     filtered_tracks: Option<Vec<PlaylistEntry>>,
-    audio_tracks: Option<Vec<AudioTrackProcessingData>>,
+    audio_tracks_data: Option<Vec<AudioTrackProcessingData>>,
 }
 
 impl PlaylistProcessingData {
     pub(crate) fn get_step(&self) -> PlaylistProcessingStep {
-        if let Some(audio_tracks) = &self.audio_tracks {
-            return if audio_tracks.iter().all(|track| track.get_step().is_final()) {
-                PlaylistProcessingStep::Final
+        if let Some(audio_tracks) = &self.audio_tracks_data {
+            return if audio_tracks
+                .iter()
+                .map(AudioTrackProcessingData::get_step)
+                .all(|step| step.is_finish())
+            {
+                PlaylistProcessingStep::Finish
             } else {
                 PlaylistProcessingStep::DownloadingTracks
             };
@@ -86,17 +87,18 @@ impl PlaylistProcessingData {
     }
 }
 
+#[derive(Debug)]
 pub(crate) enum PlaylistProcessingStep {
     DownloadPlaylist,
     FilterNewTracks,
     StartDownloadingTracks,
     DownloadingTracks,
-    Final,
+    Finish,
 }
 
 impl PlaylistProcessingStep {
     pub(crate) fn is_final(&self) -> bool {
-        matches!(self, PlaylistProcessingStep::Final)
+        matches!(self, PlaylistProcessingStep::Finish)
     }
 }
 
@@ -146,141 +148,197 @@ impl PlaylistProcessor {
         user_id: &u64,
         src_playlist_id: &str,
         dst_playlist_id: &str,
-        ctx: &mut ProcessingContext,
+        ctx: &mut PlaylistProcessingData,
     ) -> Result<(), PlaylistProcessingError> {
-        match &mut ctx.step {
-            ProcessingStep::GetSourcePlaylist => {
+        let step = ctx.get_step();
+
+        info!(
+            user_id,
+            src_playlist_id,
+            dst_playlist_id,
+            ?step,
+            "Processing playlist"
+        );
+
+        match step {
+            PlaylistProcessingStep::DownloadPlaylist => {
+                info!("Downloading playlist...");
                 match self.playlist_provider.get_playlist(src_playlist_id).await? {
                     Some(unfiltered_tracks) => {
-                        ctx.step = ProcessingStep::FilterNewTracks { unfiltered_tracks };
+                        ctx.unfiltered_tracks.replace(unfiltered_tracks);
                     }
                     None => {
                         return Err(PlaylistProcessingError::SourcePlaylistNotFound);
                     }
                 };
             }
-            ProcessingStep::FilterNewTracks { unfiltered_tracks } => {
-                let playlist_entries =
-                    match self.radio_manager.get_playlist(dst_playlist_id).await? {
-                        Some(dst_tracks) => {
-                            let dst_tracks_set = dst_tracks
-                                .into_iter()
-                                .map(|track| {
-                                    format!("{}-{}-{}", track.artist, track.album, track.title)
-                                })
-                                .collect::<HashSet<_>>();
+            PlaylistProcessingStep::FilterNewTracks => {
+                info!("Filtering playlist tracks...");
 
-                            unfiltered_tracks
-                                .iter()
-                                .filter(move |track| {
-                                    let key =
-                                        format!("{}-{}-{}", track.artist, track.album, track.title);
-                                    !dst_tracks_set.contains(&key)
-                                })
-                                .cloned()
-                                .collect()
-                        }
-                        None => unfiltered_tracks.clone(),
-                    };
-                ctx.step = ProcessingStep::ProcessPlaylistTracks {
-                    tracks_ctx: playlist_entries
-                        .into_iter()
-                        .map(|track| TrackProcessingContext {
-                            track,
-                            step: TrackProcessingStep::Initial,
-                        })
-                        .collect(),
-                };
-            }
-            ProcessingStep::ProcessPlaylistTracks { tracks_ctx } => {
-                if tracks_ctx
-                    .iter()
-                    .all(|track_ctx| matches!(track_ctx.step, TrackProcessingStep::Finish))
+                let filtered_tracks = match self.radio_manager.get_playlist(dst_playlist_id).await?
                 {
-                    ctx.step = ProcessingStep::Finish;
-                } else {
-                    for track_context in tracks_ctx.iter_mut() {
-                        self.process_single_track(track_context, &mut ctx.topics_map)
-                            .await?;
+                    Some(dst_tracks) => {
+                        let dst_tracks_set = dst_tracks
+                            .into_iter()
+                            .map(|track| {
+                                format!("{}-{}-{}", track.artist, track.album, track.title)
+                            })
+                            .collect::<HashSet<_>>();
+
+                        ctx.unfiltered_tracks
+                            .take()
+                            .unwrap_or_default()
+                            .iter()
+                            .filter(move |track| {
+                                let metadata = &track.metadata;
+                                let key = format!(
+                                    "{}-{}-{}",
+                                    metadata.artist, metadata.album, metadata.title
+                                );
+                                !dst_tracks_set.contains(&key)
+                            })
+                            .cloned()
+                            .collect()
+                    }
+                    None => ctx.unfiltered_tracks.take().unwrap_or_default(),
+                };
+
+                ctx.filtered_tracks.replace(filtered_tracks);
+            }
+            PlaylistProcessingStep::StartDownloadingTracks => {
+                info!("Initializing tracks download...");
+
+                let tracks_data = ctx
+                    .filtered_tracks
+                    .take()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|track| AudioTrackProcessingData {
+                        metadata: track.metadata,
+                        tried_topics: vec![],
+                        current_download_id: None,
+                        path_to_audio_file: None,
+                        radioterio_track_id: None,
+                        radioterio_channel_id: None,
+                    })
+                    .collect();
+                ctx.audio_tracks_data.replace(tracks_data);
+            }
+            PlaylistProcessingStep::DownloadingTracks => {
+                info!("Downloading tracks...");
+
+                if let Some(audio_tracks_data) = &mut ctx.audio_tracks_data {
+                    for audio_track_data in audio_tracks_data.iter_mut() {
+                        self.process_audio_track(audio_track_data).await?;
                     }
                 }
             }
-            ProcessingStep::Finish => (),
+            PlaylistProcessingStep::Finish => {
+                info!("Finished");
+            }
         };
 
         Ok(())
     }
 
-    async fn process_single_track(
+    async fn process_audio_track(
         &self,
-        ctx: &mut TrackProcessingContext,
-        topics_map: &mut HashMap<TopicId, DownloadId>,
+        track_ctx: &mut AudioTrackProcessingData,
     ) -> Result<(), PlaylistProcessingError> {
-        match ctx.step.clone() {
-            TrackProcessingStep::Initial => {
-                ctx.step = TrackProcessingStep::Search {
-                    other_topics: vec![],
-                };
-            }
-            TrackProcessingStep::Search { other_topics } => {
-                let other_topics_set = other_topics.iter().collect::<HashSet<_>>();
+        let step = track_ctx.get_step();
 
-                let album_query = format!("{} - {}", ctx.track.artist, ctx.track.album);
-                let maybe_entry = self
+        match step {
+            AudioTrackProcessingStep::SearchAlbum => {
+                let album_query = format!(
+                    "{} - {}",
+                    track_ctx.metadata.artist, track_ctx.metadata.album
+                );
+                debug!(album_query, "Searching for album...");
+                let maybe_result = self
                     .search_service
                     .search(&album_query)
                     .await?
                     .into_iter()
-                    .filter(|entry| other_topics_set.contains(&entry.topic_id))
-                    .next();
+                    .find(|entry| !track_ctx.tried_topics.contains(&entry.topic_id));
 
-                if let Some(entry) = maybe_entry {
-                    let maybe_download_url = self
-                        .search_service
-                        .get_download_url(&entry.topic_id)
-                        .await?;
-
-                    if let Some(download_url) = maybe_download_url {
-                        let download_id = self
-                            .track_downloader
-                            .create_download("/tmp/downloads", download_url)
-                            .await?;
-
-                        let mut topics = other_topics.clone();
-                        topics_map.insert(entry.topic_id.clone(), download_id);
-                        topics.push(entry.topic_id);
-                        ctx.step = TrackProcessingStep::Download { topics };
-
+                let result = match maybe_result {
+                    Some(result) => result,
+                    None => {
+                        // TODO: Mark as "Not found"
                         return Ok(());
                     }
-                }
+                };
 
-                ctx.step = TrackProcessingStep::NotFound;
-            }
-            TrackProcessingStep::Download { topics } => {
-                let download_ids = topics
-                    .into_iter()
-                    .filter_map(|topic_id| topics_map.get(&topic_id))
-                    .cloned()
-                    .collect::<Vec<_>>();
+                debug!("Getting download url...");
 
-                for download_id in download_ids.into_iter() {
-                    let download_entry =
-                        match self.track_downloader.get_download(&download_id).await? {
-                            None => {
-                                warn!("Track has reference to download which does not exist");
-                                continue;
-                            }
-                            Some(download_entry) => download_entry,
-                        };
+                let maybe_download_url = self
+                    .search_service
+                    .get_download_url(&result.topic_id)
+                    .await?;
 
-                    if !matches!(download_entry.status, DownloadingStatus::Finished) {
-                        continue;
+                let download_url = match maybe_download_url {
+                    Some(download_url) => download_url,
+                    None => {
+                        // TODO: Mark as "Not found"
+                        return Ok(());
                     }
+                };
+
+                debug!("Starting download...");
+
+                let download_id = self
+                    .track_downloader
+                    .create_download("/tmp/downloads", download_url)
+                    .await?;
+
+                track_ctx.current_download_id.replace(download_id);
+            }
+            AudioTrackProcessingStep::Downloading => {
+                if let Some(download_id) = &track_ctx.current_download_id {
+                    let maybe_download = self.track_downloader.get_download(download_id).await?;
+                    let download = match maybe_download {
+                        Some(download) => download,
+                        None => {
+                            warn!("Download does not exist!");
+                            track_ctx.current_download_id.take();
+                            return Ok(());
+                        }
+                    };
+
+                    if !matches!(download.status, DownloadingStatus::Finished) {
+                        return Ok(());
+                    }
+
+                    debug!("Searching for the track in finished download...");
+
+                    for file_path in download.files {
+                        let maybe_metadata =
+                            self.metadata_service.get_audio_metadata(&file_path).await?;
+
+                        if let Some(metadata) = maybe_metadata {
+                            if metadata.artist == track_ctx.metadata.artist
+                                && metadata.title == track_ctx.metadata.title
+                            {
+                                track_ctx.path_to_audio_file.replace(file_path);
+                                return Ok(());
+                            }
+                        }
+                    }
+
+                    info!("The current download appears to be missing the required audio track");
+
+                    track_ctx.current_download_id.take();
                 }
             }
-            TrackProcessingStep::AddToPlaylist { path_to_file } => (),
-            TrackProcessingStep::Finish | TrackProcessingStep::NotFound => (),
+            AudioTrackProcessingStep::Upload => {
+                todo!()
+            }
+            AudioTrackProcessingStep::AddToChannel => {
+                todo!()
+            }
+            AudioTrackProcessingStep::Finish => {
+                debug!("Finished")
+            }
         }
 
         Ok(())
