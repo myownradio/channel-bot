@@ -371,14 +371,14 @@ mod tests {
             path_to_download: &str,
             url: Vec<u8>,
         ) -> Result<DownloadId, TrackDownloaderError> {
-            Ok(DownloadId(String::from("DownloadingId")))
+            Ok(DownloadId(format!("DownloadingId{:?}", url)))
         }
 
         async fn get_download(
             &self,
             download_id: &DownloadId,
         ) -> Result<Option<TrackDownloadEntry>, TrackDownloaderError> {
-            Ok(if download_id.0 == String::from("DownloadingId") {
+            Ok(if download_id.0.contains("Downloading") {
                 Some(TrackDownloadEntry {
                     id: download_id.clone(),
                     status: DownloadingStatus::Downloading,
@@ -387,7 +387,7 @@ mod tests {
                         String::from("path/to/downloading_file2.mp3"),
                     ],
                 })
-            } else if download_id.0 == String::from("DownloadedId") {
+            } else if &download_id.0 == "DownloadedId" {
                 Some(TrackDownloadEntry {
                     id: download_id.clone(),
                     status: DownloadingStatus::Finished,
@@ -769,5 +769,65 @@ mod tests {
         for track_data in processing_data.audio_tracks_data.unwrap() {
             assert_eq!(track_data.get_step(), AudioTrackProcessingStep::SearchAlbum);
         }
+    }
+
+    #[actix_rt::test]
+    async fn test_search_track_album() {
+        let playlist_processor = PlaylistProcessor::create(
+            Arc::new(TrackDownloaderMock),
+            Arc::new(PlaylistProviderMock),
+            Arc::new(RadioManagerMock),
+            Arc::new(MetadataServiceMock),
+            Arc::new(MusicSearchServiceMock),
+        );
+
+        let mut processing_data = PlaylistProcessingData {
+            audio_tracks_data: Some(vec![AudioTrackProcessingData {
+                metadata: AudioMetadata {
+                    title: String::from("Track Title 1"),
+                    artist: String::from("Track Artist 1"),
+                    album: String::from("Track Album 1"),
+                },
+                ..AudioTrackProcessingData::default()
+            }]),
+            ..PlaylistProcessingData::default()
+        };
+
+        assert_eq!(
+            processing_data.get_step(),
+            PlaylistProcessingStep::DownloadingTracks
+        );
+
+        playlist_processor
+            .process_playlist(
+                &1,
+                "ExistingPlaylistId",
+                "ExistingPlaylistId",
+                &mut processing_data,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            processing_data.get_step(),
+            PlaylistProcessingStep::DownloadingTracks
+        );
+        assert_eq!(
+            processing_data.audio_tracks_data,
+            Some(vec![AudioTrackProcessingData {
+                metadata: AudioMetadata {
+                    title: String::from("Track Title 1"),
+                    artist: String::from("Track Artist 1"),
+                    album: String::from("Track Album 1"),
+                },
+                current_download_id: Some(DownloadId(String::from("DownloadingId[0, 0, 0, 2]"))),
+                ..AudioTrackProcessingData::default()
+            },])
+        );
+
+        assert_eq!(
+            processing_data.audio_tracks_data.unwrap()[0].get_step(),
+            AudioTrackProcessingStep::SearchAlbum
+        );
     }
 }
