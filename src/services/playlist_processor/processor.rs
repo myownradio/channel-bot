@@ -10,6 +10,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use tracing::{debug, info, instrument, warn};
 
+#[derive(Debug, PartialEq, Default)]
 pub(crate) struct AudioTrackProcessingData {
     metadata: AudioMetadata,
     tried_topics: Vec<TopicId>,
@@ -41,6 +42,7 @@ impl AudioTrackProcessingData {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub(crate) enum AudioTrackProcessingStep {
     SearchAlbum,
     Downloading,
@@ -55,6 +57,7 @@ impl AudioTrackProcessingStep {
     }
 }
 
+#[derive(Default)]
 pub(crate) struct PlaylistProcessingData {
     unfiltered_tracks: Option<Vec<PlaylistEntry>>,
     filtered_tracks: Option<Vec<PlaylistEntry>>,
@@ -87,7 +90,7 @@ impl PlaylistProcessingData {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) enum PlaylistProcessingStep {
     DownloadPlaylist,
     FilterNewTracks,
@@ -181,7 +184,12 @@ impl PlaylistProcessor {
                         let dst_tracks_set = dst_tracks
                             .into_iter()
                             .map(|track| {
-                                format!("{}-{}-{}", track.artist, track.album, track.title)
+                                format!(
+                                    "{}-{}-{}",
+                                    track.metadata.artist,
+                                    track.metadata.album,
+                                    track.metadata.title
+                                )
                             })
                             .collect::<HashSet<_>>();
 
@@ -190,10 +198,11 @@ impl PlaylistProcessor {
                             .unwrap_or_default()
                             .iter()
                             .filter(move |track| {
-                                let metadata = &track.metadata;
                                 let key = format!(
                                     "{}-{}-{}",
-                                    metadata.artist, metadata.album, metadata.title
+                                    track.metadata.artist,
+                                    track.metadata.album,
+                                    track.metadata.title
                                 );
                                 !dst_tracks_set.contains(&key)
                             })
@@ -342,5 +351,423 @@ impl PlaylistProcessor {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::services::playlist_processor::types::{
+        RadioManagerPlaylistEntry, SearchResultsEntry,
+    };
+    use async_trait::async_trait;
+
+    struct TrackDownloaderMock;
+
+    #[async_trait]
+    impl TrackDownloader for TrackDownloaderMock {
+        async fn create_download(
+            &self,
+            path_to_download: &str,
+            url: Vec<u8>,
+        ) -> Result<DownloadId, TrackDownloaderError> {
+            Ok(DownloadId(String::from("DownloadingId")))
+        }
+
+        async fn get_download(
+            &self,
+            download_id: &DownloadId,
+        ) -> Result<Option<TrackDownloadEntry>, TrackDownloaderError> {
+            Ok(if download_id.0 == String::from("DownloadingId") {
+                Some(TrackDownloadEntry {
+                    id: download_id.clone(),
+                    status: DownloadingStatus::Downloading,
+                    files: vec![
+                        String::from("path/to/downloading_file1.mp3"),
+                        String::from("path/to/downloading_file2.mp3"),
+                    ],
+                })
+            } else if download_id.0 == String::from("DownloadedId") {
+                Some(TrackDownloadEntry {
+                    id: download_id.clone(),
+                    status: DownloadingStatus::Finished,
+                    files: vec![
+                        String::from("path/to/downloaded_file1.mp3"),
+                        String::from("path/to/downloaded_file2.mp3"),
+                    ],
+                })
+            } else {
+                None
+            })
+        }
+
+        async fn delete_download(
+            &self,
+            download_id: &DownloadId,
+        ) -> Result<(), TrackDownloaderError> {
+            Ok(())
+        }
+    }
+
+    struct PlaylistProviderMock;
+
+    #[async_trait]
+    impl PlaylistProvider for PlaylistProviderMock {
+        async fn get_playlist(
+            &self,
+            playlist_id: &str,
+        ) -> Result<Option<Vec<PlaylistEntry>>, PlaylistProviderError> {
+            if playlist_id == "ExistingPlaylistId" {
+                Ok(Some(vec![
+                    PlaylistEntry {
+                        metadata: AudioMetadata {
+                            title: String::from("Track Title 1"),
+                            artist: String::from("Track Artist 1"),
+                            album: String::from("Track Album 1"),
+                        },
+                    },
+                    PlaylistEntry {
+                        metadata: AudioMetadata {
+                            title: String::from("Track Title 2"),
+                            artist: String::from("Track Artist 2"),
+                            album: String::from("Track Album 2"),
+                        },
+                    },
+                    PlaylistEntry {
+                        metadata: AudioMetadata {
+                            title: String::from("Track Title 3"),
+                            artist: String::from("Track Artist 3"),
+                            album: String::from("Track Album 3"),
+                        },
+                    },
+                ]))
+            } else {
+                Ok(None)
+            }
+        }
+    }
+
+    struct RadioManagerMock;
+
+    #[async_trait]
+    impl RadioManager for RadioManagerMock {
+        async fn get_playlist(
+            &self,
+            playlist_id: &str,
+        ) -> Result<Option<Vec<RadioManagerPlaylistEntry>>, RadioManagerError> {
+            if playlist_id == "ExistingPlaylistId" {
+                Ok(Some(vec![RadioManagerPlaylistEntry {
+                    id: String::from("entry1"),
+                    metadata: AudioMetadata {
+                        title: String::from("Track Title 2"),
+                        artist: String::from("Track Artist 2"),
+                        album: String::from("Track Album 2"),
+                    },
+                }]))
+            } else {
+                Ok(None)
+            }
+        }
+
+        async fn add_track_to_playlist(
+            &self,
+            playlist_id: &str,
+            file_path: &str,
+        ) -> Result<(), RadioManagerError> {
+            todo!()
+        }
+    }
+
+    struct MetadataServiceMock;
+
+    #[async_trait]
+    impl MetadataService for MetadataServiceMock {
+        async fn get_audio_metadata(
+            &self,
+            file_path: &str,
+        ) -> Result<Option<AudioMetadata>, MetadataServiceError> {
+            todo!()
+        }
+    }
+
+    struct MusicSearchServiceMock;
+
+    #[async_trait]
+    impl MusicSearchService for MusicSearchServiceMock {
+        async fn search(
+            &self,
+            query: &str,
+        ) -> Result<Vec<SearchResultsEntry>, MusicSearchServiceError> {
+            Ok(match query {
+                "Track Artist 3 - Track Album 3" => vec![
+                    SearchResultsEntry {
+                        title: String::from("Track Artist 3 - Track Album 3"),
+                        topic_id: TopicId(String::from("Track Artist 3 - Track Album 3 [MP3]")),
+                        tracks_hint: vec![],
+                    },
+                    SearchResultsEntry {
+                        title: String::from("Track Artist 3 - Track Album 3"),
+                        topic_id: TopicId(String::from("Track Artist 3 - Track Album 3 [123123]")),
+                        tracks_hint: vec![],
+                    },
+                ],
+                "Track Artist 1 - Track Album 1" => vec![SearchResultsEntry {
+                    title: String::from("Track Artist 1 - Track Album 1"),
+                    topic_id: TopicId(String::from("Track Artist 1 - Track Album 1")),
+                    tracks_hint: vec![],
+                }],
+                "Track Artist 2" => vec![
+                    SearchResultsEntry {
+                        title: String::from("Track Artist 2 Discography [MP3]"),
+                        topic_id: TopicId(String::from("Track Artist 2 Discography [MP3]")),
+                        tracks_hint: vec![],
+                    },
+                    SearchResultsEntry {
+                        title: String::from("Track Artist 2 Discography [FLAC]"),
+                        topic_id: TopicId(String::from("Track Artist 2 Discography [FLAC]")),
+                        tracks_hint: vec![],
+                    },
+                ],
+                _ => vec![],
+            })
+        }
+
+        async fn get_download_url(
+            &self,
+            topic_id: &TopicId,
+        ) -> Result<Option<Vec<u8>>, MusicSearchServiceError> {
+            Ok(match topic_id.0.as_str() {
+                "Track Artist 3 - Track Album 3 [MP3]" => Some(vec![0, 0, 0, 0]),
+                "Track Artist 3 - Track Album 3 [123123]" => Some(vec![0, 0, 0, 1]),
+                "Track Artist 1 - Track Album 1" => Some(vec![0, 0, 0, 2]),
+                "Track Artist 2 Discography [MP3]" => Some(vec![0, 0, 0, 3]),
+                "Track Artist 2 Discography [FLAC]" => Some(vec![0, 0, 0, 4]),
+                _ => None,
+            })
+        }
+    }
+
+    #[actix_rt::test]
+    async fn test_initializing_playlist_processor() {
+        let playlist_processor = PlaylistProcessor::create(
+            Arc::new(TrackDownloaderMock),
+            Arc::new(PlaylistProviderMock),
+            Arc::new(RadioManagerMock),
+            Arc::new(MetadataServiceMock),
+            Arc::new(MusicSearchServiceMock),
+        );
+
+        drop(playlist_processor);
+    }
+
+    #[actix_rt::test]
+    async fn test_download_source_playlist() {
+        let playlist_processor = PlaylistProcessor::create(
+            Arc::new(TrackDownloaderMock),
+            Arc::new(PlaylistProviderMock),
+            Arc::new(RadioManagerMock),
+            Arc::new(MetadataServiceMock),
+            Arc::new(MusicSearchServiceMock),
+        );
+
+        let mut processing_data = PlaylistProcessingData::default();
+
+        assert_eq!(
+            processing_data.get_step(),
+            PlaylistProcessingStep::DownloadPlaylist
+        );
+
+        let result = playlist_processor
+            .process_playlist(
+                &1,
+                "ExistingPlaylistId",
+                "ExistingPlaylistId",
+                &mut processing_data,
+            )
+            .await;
+
+        assert!(result.is_ok());
+        assert_eq!(
+            processing_data.get_step(),
+            PlaylistProcessingStep::FilterNewTracks
+        );
+        assert_eq!(
+            processing_data.unfiltered_tracks,
+            Some(vec![
+                PlaylistEntry {
+                    metadata: AudioMetadata {
+                        title: String::from("Track Title 1"),
+                        artist: String::from("Track Artist 1"),
+                        album: String::from("Track Album 1"),
+                    },
+                },
+                PlaylistEntry {
+                    metadata: AudioMetadata {
+                        title: String::from("Track Title 2"),
+                        artist: String::from("Track Artist 2"),
+                        album: String::from("Track Album 2"),
+                    },
+                },
+                PlaylistEntry {
+                    metadata: AudioMetadata {
+                        title: String::from("Track Title 3"),
+                        artist: String::from("Track Artist 3"),
+                        album: String::from("Track Album 3"),
+                    },
+                },
+            ])
+        );
+    }
+
+    #[actix_rt::test]
+    async fn test_filtering_new_tracks() {
+        let playlist_processor = PlaylistProcessor::create(
+            Arc::new(TrackDownloaderMock),
+            Arc::new(PlaylistProviderMock),
+            Arc::new(RadioManagerMock),
+            Arc::new(MetadataServiceMock),
+            Arc::new(MusicSearchServiceMock),
+        );
+
+        let mut processing_data = PlaylistProcessingData {
+            unfiltered_tracks: Some(vec![
+                PlaylistEntry {
+                    metadata: AudioMetadata {
+                        title: String::from("Track Title 1"),
+                        artist: String::from("Track Artist 1"),
+                        album: String::from("Track Album 1"),
+                    },
+                },
+                PlaylistEntry {
+                    metadata: AudioMetadata {
+                        title: String::from("Track Title 2"),
+                        artist: String::from("Track Artist 2"),
+                        album: String::from("Track Album 2"),
+                    },
+                },
+                PlaylistEntry {
+                    metadata: AudioMetadata {
+                        title: String::from("Track Title 3"),
+                        artist: String::from("Track Artist 3"),
+                        album: String::from("Track Album 3"),
+                    },
+                },
+            ]),
+            ..PlaylistProcessingData::default()
+        };
+
+        assert_eq!(
+            processing_data.get_step(),
+            PlaylistProcessingStep::FilterNewTracks
+        );
+
+        let result = playlist_processor
+            .process_playlist(
+                &1,
+                "ExistingPlaylistId",
+                "ExistingPlaylistId",
+                &mut processing_data,
+            )
+            .await;
+
+        assert!(result.is_ok());
+        assert_eq!(
+            processing_data.get_step(),
+            PlaylistProcessingStep::StartDownloadingTracks
+        );
+        assert_eq!(
+            processing_data.filtered_tracks,
+            Some(vec![
+                PlaylistEntry {
+                    metadata: AudioMetadata {
+                        title: String::from("Track Title 1"),
+                        artist: String::from("Track Artist 1"),
+                        album: String::from("Track Album 1"),
+                    },
+                },
+                PlaylistEntry {
+                    metadata: AudioMetadata {
+                        title: String::from("Track Title 3"),
+                        artist: String::from("Track Artist 3"),
+                        album: String::from("Track Album 3"),
+                    },
+                },
+            ])
+        );
+    }
+
+    #[actix_rt::test]
+    async fn test_start_downloading_new_tracks() {
+        let playlist_processor = PlaylistProcessor::create(
+            Arc::new(TrackDownloaderMock),
+            Arc::new(PlaylistProviderMock),
+            Arc::new(RadioManagerMock),
+            Arc::new(MetadataServiceMock),
+            Arc::new(MusicSearchServiceMock),
+        );
+
+        let mut processing_data = PlaylistProcessingData {
+            filtered_tracks: Some(vec![
+                PlaylistEntry {
+                    metadata: AudioMetadata {
+                        title: String::from("Track Title 1"),
+                        artist: String::from("Track Artist 1"),
+                        album: String::from("Track Album 1"),
+                    },
+                },
+                PlaylistEntry {
+                    metadata: AudioMetadata {
+                        title: String::from("Track Title 3"),
+                        artist: String::from("Track Artist 3"),
+                        album: String::from("Track Album 3"),
+                    },
+                },
+            ]),
+            ..PlaylistProcessingData::default()
+        };
+
+        assert_eq!(
+            processing_data.get_step(),
+            PlaylistProcessingStep::StartDownloadingTracks
+        );
+
+        let result = playlist_processor
+            .process_playlist(
+                &1,
+                "ExistingPlaylistId",
+                "ExistingPlaylistId",
+                &mut processing_data,
+            )
+            .await;
+
+        assert!(result.is_ok());
+        assert_eq!(
+            processing_data.get_step(),
+            PlaylistProcessingStep::DownloadingTracks
+        );
+        assert_eq!(
+            processing_data.audio_tracks_data,
+            Some(vec![
+                AudioTrackProcessingData {
+                    metadata: AudioMetadata {
+                        title: String::from("Track Title 1"),
+                        artist: String::from("Track Artist 1"),
+                        album: String::from("Track Album 1"),
+                    },
+                    ..AudioTrackProcessingData::default()
+                },
+                AudioTrackProcessingData {
+                    metadata: AudioMetadata {
+                        title: String::from("Track Title 3"),
+                        artist: String::from("Track Artist 3"),
+                        album: String::from("Track Album 3"),
+                    },
+                    ..AudioTrackProcessingData::default()
+                }
+            ])
+        );
+        for track_data in processing_data.audio_tracks_data.unwrap() {
+            assert_eq!(track_data.get_step(), AudioTrackProcessingStep::SearchAlbum);
+        }
     }
 }

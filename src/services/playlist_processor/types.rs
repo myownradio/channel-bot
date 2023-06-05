@@ -1,8 +1,8 @@
 //
 // Downloader
 //
-#[derive(Eq, PartialEq, Clone)]
-pub(crate) struct DownloadId(String);
+#[derive(Eq, PartialEq, Clone, Debug)]
+pub(crate) struct DownloadId(pub(crate) String);
 
 pub(crate) enum DownloadingStatus {
     Downloading,
@@ -25,7 +25,7 @@ pub(crate) enum TrackDownloaderError {
 // Playlist Provider
 //
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 pub(crate) struct PlaylistEntry {
     pub(crate) metadata: AudioMetadata,
 }
@@ -41,10 +41,8 @@ pub(crate) enum PlaylistProviderError {
 //
 
 pub(crate) struct RadioManagerPlaylistEntry {
-    id: String,
-    pub(crate) title: String,
-    pub(crate) artist: String,
-    pub(crate) album: String,
+    pub(crate) id: String,
+    pub(crate) metadata: AudioMetadata,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -54,7 +52,7 @@ pub(crate) enum RadioManagerError {
 }
 
 // Audio Metadata Service
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug, Default)]
 pub(crate) struct AudioMetadata {
     pub(crate) title: String,
     pub(crate) artist: String,
@@ -68,8 +66,8 @@ pub(crate) enum MetadataServiceError {
 }
 
 // Audio Search Service
-#[derive(Eq, PartialEq, Clone, Hash)]
-pub(crate) struct TopicId(String);
+#[derive(Eq, PartialEq, Clone, Hash, Debug)]
+pub(crate) struct TopicId(pub(crate) String);
 
 pub(crate) struct SearchResultsEntry {
     pub(crate) title: String,
