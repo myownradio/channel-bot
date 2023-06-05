@@ -35,7 +35,7 @@ impl AudioTrackProcessingData {
         }
 
         if self.current_download_id.is_some() {
-            AudioTrackProcessingStep::Downloading;
+            return AudioTrackProcessingStep::Downloading;
         }
 
         AudioTrackProcessingStep::SearchAlbum
@@ -368,7 +368,7 @@ mod tests {
     impl TrackDownloader for TrackDownloaderMock {
         async fn create_download(
             &self,
-            path_to_download: &str,
+            _path_to_download: &str,
             url: Vec<u8>,
         ) -> Result<DownloadId, TrackDownloaderError> {
             Ok(DownloadId(format!("DownloadingId{:?}", url)))
@@ -387,13 +387,22 @@ mod tests {
                         String::from("path/to/downloading_file2.mp3"),
                     ],
                 })
-            } else if &download_id.0 == "DownloadedId" {
+            } else if download_id.0.contains("Downloaded") {
                 Some(TrackDownloadEntry {
                     id: download_id.clone(),
                     status: DownloadingStatus::Finished,
                     files: vec![
                         String::from("path/to/downloaded_file1.mp3"),
                         String::from("path/to/downloaded_file2.mp3"),
+                    ],
+                })
+            } else if download_id.0.as_str() == "SomethingElse" {
+                Some(TrackDownloadEntry {
+                    id: download_id.clone(),
+                    status: DownloadingStatus::Finished,
+                    files: vec![
+                        String::from("path/to/downloaded_file3.mp3"),
+                        String::from("path/to/downloaded_file4.mp3"),
                     ],
                 })
             } else {
@@ -486,7 +495,29 @@ mod tests {
             &self,
             file_path: &str,
         ) -> Result<Option<AudioMetadata>, MetadataServiceError> {
-            todo!()
+            Ok(match file_path {
+                "path/to/downloaded_file1.mp3" => Some(AudioMetadata {
+                    title: String::from("Track Title 1"),
+                    artist: String::from("Track Artist 1"),
+                    album: String::from("Track Album 1"),
+                }),
+                "path/to/downloaded_file2.mp3" => Some(AudioMetadata {
+                    title: String::from("Track Title 2"),
+                    artist: String::from("Track Artist 2"),
+                    album: String::from("Track Album 2"),
+                }),
+                "path/to/downloaded_file3.mp3" => Some(AudioMetadata {
+                    title: String::from("Track Title 3"),
+                    artist: String::from("Track Artist 3"),
+                    album: String::from("Track Album 3"),
+                }),
+                "path/to/downloaded_file4.mp3" => Some(AudioMetadata {
+                    title: String::from("Other Track Title"),
+                    artist: String::from("Other Track Artist"),
+                    album: String::from("Other Track Album"),
+                }),
+                _ => None,
+            })
         }
     }
 
@@ -797,6 +828,10 @@ mod tests {
             processing_data.get_step(),
             PlaylistProcessingStep::DownloadingTracks
         );
+        assert_eq!(
+            processing_data.audio_tracks_data.as_ref().unwrap()[0].get_step(),
+            AudioTrackProcessingStep::SearchAlbum
+        );
 
         playlist_processor
             .process_playlist(
@@ -827,7 +862,135 @@ mod tests {
 
         assert_eq!(
             processing_data.audio_tracks_data.unwrap()[0].get_step(),
+            AudioTrackProcessingStep::Downloading
+        );
+    }
+
+    #[actix_rt::test]
+    async fn test_downloading_track_progress() {
+        let playlist_processor = PlaylistProcessor::create(
+            Arc::new(TrackDownloaderMock),
+            Arc::new(PlaylistProviderMock),
+            Arc::new(RadioManagerMock),
+            Arc::new(MetadataServiceMock),
+            Arc::new(MusicSearchServiceMock),
+        );
+
+        let mut processing_data = PlaylistProcessingData {
+            audio_tracks_data: Some(vec![AudioTrackProcessingData {
+                metadata: AudioMetadata {
+                    title: String::from("Track Title 1"),
+                    artist: String::from("Track Artist 1"),
+                    album: String::from("Track Album 1"),
+                },
+                current_download_id: Some(DownloadId(String::from("DownloadingId[0, 0, 0, 2]"))),
+                ..AudioTrackProcessingData::default()
+            }]),
+
+            ..PlaylistProcessingData::default()
+        };
+
+        assert_eq!(
+            processing_data.get_step(),
+            PlaylistProcessingStep::DownloadingTracks
+        );
+
+        playlist_processor
+            .process_playlist(
+                &1,
+                "ExistingPlaylistId",
+                "ExistingPlaylistId",
+                &mut processing_data,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            processing_data.get_step(),
+            PlaylistProcessingStep::DownloadingTracks
+        );
+        assert_eq!(
+            processing_data.audio_tracks_data,
+            Some(vec![AudioTrackProcessingData {
+                metadata: AudioMetadata {
+                    title: String::from("Track Title 1"),
+                    artist: String::from("Track Artist 1"),
+                    album: String::from("Track Album 1"),
+                },
+                current_download_id: Some(DownloadId(String::from("DownloadingId[0, 0, 0, 2]"))),
+                ..AudioTrackProcessingData::default()
+            },])
+        );
+
+        assert_eq!(
+            processing_data.audio_tracks_data.as_ref().unwrap()[0].get_step(),
+            AudioTrackProcessingStep::Downloading
+        );
+    }
+
+    #[actix_rt::test]
+    async fn test_download_finished_but_track_does_not_exist() {
+        let playlist_processor = PlaylistProcessor::create(
+            Arc::new(TrackDownloaderMock),
+            Arc::new(PlaylistProviderMock),
+            Arc::new(RadioManagerMock),
+            Arc::new(MetadataServiceMock),
+            Arc::new(MusicSearchServiceMock),
+        );
+
+        let mut processing_data = PlaylistProcessingData {
+            audio_tracks_data: Some(vec![AudioTrackProcessingData {
+                metadata: AudioMetadata {
+                    title: String::from("Track Title 1"),
+                    artist: String::from("Track Artist 1"),
+                    album: String::from("Track Album 1"),
+                },
+                current_download_id: Some(DownloadId(String::from("SomethingElse"))),
+                ..AudioTrackProcessingData::default()
+            }]),
+
+            ..PlaylistProcessingData::default()
+        };
+
+        assert_eq!(
+            processing_data.get_step(),
+            PlaylistProcessingStep::DownloadingTracks
+        );
+        assert_eq!(
+            processing_data.audio_tracks_data.as_ref().unwrap()[0].get_step(),
+            AudioTrackProcessingStep::Downloading
+        );
+
+        playlist_processor
+            .process_playlist(
+                &1,
+                "ExistingPlaylistId",
+                "ExistingPlaylistId",
+                &mut processing_data,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            processing_data.get_step(),
+            PlaylistProcessingStep::DownloadingTracks
+        );
+        assert_eq!(
+            processing_data.audio_tracks_data.as_ref().unwrap()[0].get_step(),
             AudioTrackProcessingStep::SearchAlbum
+        );
+
+        assert_eq!(
+            processing_data.audio_tracks_data,
+            Some(vec![AudioTrackProcessingData {
+                metadata: AudioMetadata {
+                    title: String::from("Track Title 1"),
+                    artist: String::from("Track Artist 1"),
+                    album: String::from("Track Album 1"),
+                },
+                current_download_id: None,
+                ..AudioTrackProcessingData::default()
+            },])
         );
     }
 }
