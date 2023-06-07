@@ -12,6 +12,12 @@ pub(crate) enum CreateJobError {
     StateStorageError(#[from] StateStorageError),
 }
 
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum ProceedNextStepError {
+    #[error(transparent)]
+    StateStorageError(#[from] StateStorageError),
+}
+
 pub(crate) struct TrackFetcher {
     state_storage: Arc<dyn StateStorage>,
 }
@@ -28,13 +34,13 @@ impl TrackFetcher {
         target_channel_id: &RadioterioChannelId,
     ) -> Result<JobId, CreateJobError> {
         let key = Uuid::new_v4();
+        let ctx = TrackFetcherContext::new(
+            track_metadata.title.clone(),
+            track_metadata.artist.clone(),
+            track_metadata.album.clone(),
+            target_channel_id.clone(),
+        );
         let state = TrackFetcherState::default();
-        let ctx = TrackFetcherContext {
-            track_title: track_metadata.title.clone(),
-            track_artist: track_metadata.artist.clone(),
-            track_album: track_metadata.album.clone(),
-            target_channel_id: target_channel_id.clone(),
-        };
 
         let key_str = key.to_string();
         self.state_storage
@@ -46,4 +52,14 @@ impl TrackFetcher {
 
         Ok(JobId(key))
     }
+
+    pub(crate) async fn continue_job(
+        &self,
+        user_id: &UserId,
+        job_id: &JobId,
+    ) -> Result<(), ProceedNextStepError> {
+        Ok(())
+    }
+
+    async fn proceed_next_step(&self, ctx: &TrackFetcherContext, state: &mut TrackFetcherState) {}
 }
