@@ -1,13 +1,31 @@
 use serde::Serialize;
 
 #[derive(Eq, PartialEq, Clone, Debug, Serialize)]
-pub(crate) struct DownloadId(pub(crate) String);
+pub(crate) struct DownloadId(String);
+
+impl Into<DownloadId> for &str {
+    fn into(self) -> DownloadId {
+        DownloadId(self.to_string())
+    }
+}
 
 #[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize)]
-pub(crate) struct TopicId(pub(crate) String);
+pub(crate) struct TopicId(String);
+
+impl Into<TopicId> for &str {
+    fn into(self) -> TopicId {
+        TopicId(self.to_string())
+    }
+}
 
 #[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize)]
-pub(crate) struct RadioterioTrackId(pub(crate) u64);
+pub(crate) struct RadioterioTrackId(u64);
+
+impl Into<RadioterioTrackId> for u64 {
+    fn into(self) -> RadioterioTrackId {
+        RadioterioTrackId(self)
+    }
+}
 
 impl std::fmt::Display for RadioterioTrackId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -16,7 +34,13 @@ impl std::fmt::Display for RadioterioTrackId {
 }
 
 #[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize)]
-pub(crate) struct RadioterioChannelId(pub(crate) u64);
+pub(crate) struct RadioterioChannelId(u64);
+
+impl Into<RadioterioChannelId> for u64 {
+    fn into(self) -> RadioterioChannelId {
+        RadioterioChannelId(self)
+    }
+}
 
 impl std::fmt::Display for RadioterioChannelId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -25,7 +49,13 @@ impl std::fmt::Display for RadioterioChannelId {
 }
 
 #[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize)]
-pub(crate) struct RadioterioLinkId;
+pub(crate) struct RadioterioLinkId(String);
+
+impl Into<RadioterioLinkId> for &str {
+    fn into(self) -> RadioterioLinkId {
+        RadioterioLinkId(self.into())
+    }
+}
 
 impl std::fmt::Display for RadioterioLinkId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

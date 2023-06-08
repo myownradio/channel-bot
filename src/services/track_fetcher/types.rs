@@ -37,22 +37,23 @@ pub(crate) struct TrackFetcherState {
 
 impl TrackFetcherState {
     pub(crate) fn get_step(&self) -> TrackFetcherStep {
-        if self.radioterio_link_id.is_some() {
-            TrackFetcherStep::Finish
-        } else if self.radioterio_track_id.is_some() {
-            TrackFetcherStep::AddTrackToRadioterioChannel
-        } else if self.path_to_downloaded_file.is_some() {
-            TrackFetcherStep::UploadTrackToRadioterio
-        } else if self.current_download_id.is_some() {
-            TrackFetcherStep::DownloadTrackAlbum
-        } else if self.current_topic_id.is_some() {
-            TrackFetcherStep::DownloadTorrent
-        } else {
+        if self.current_topic_id.is_none() {
             TrackFetcherStep::FindTrackAlbum
+        } else if self.current_download_id.is_none() {
+            TrackFetcherStep::DownloadTorrent
+        } else if self.path_to_downloaded_file.is_none() {
+            TrackFetcherStep::DownloadTrackAlbum
+        } else if self.radioterio_track_id.is_none() {
+            TrackFetcherStep::UploadTrackToRadioterio
+        } else if self.radioterio_link_id.is_none() {
+            TrackFetcherStep::AddTrackToRadioterioChannel
+        } else {
+            TrackFetcherStep::Finish
         }
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub(crate) enum TrackFetcherStep {
     FindTrackAlbum,
     DownloadTorrent,
@@ -60,4 +61,79 @@ pub(crate) enum TrackFetcherStep {
     UploadTrackToRadioterio,
     AddTrackToRadioterioChannel,
     Finish,
+}
+
+#[cfg(test)]
+mod track_fetcher_step_tests {
+    use crate::services::track_fetcher::types::{TrackFetcherState, TrackFetcherStep};
+
+    #[test]
+    fn should_return_find_track_album_by_default() {
+        let state = TrackFetcherState::default();
+
+        assert_eq!(state.get_step(), TrackFetcherStep::FindTrackAlbum)
+    }
+
+    #[test]
+    fn should_return_download_torrent_if_current_topic() {
+        let state = TrackFetcherState {
+            current_topic_id: Some("topic".into()),
+            ..TrackFetcherState::default()
+        };
+
+        assert_eq!(state.get_step(), TrackFetcherStep::DownloadTorrent)
+    }
+
+    #[test]
+    fn should_return_download_track_album_if_current_download() {
+        let state = TrackFetcherState {
+            current_topic_id: Some("topic".into()),
+            current_download_id: Some("download".into()),
+            ..TrackFetcherState::default()
+        };
+
+        assert_eq!(state.get_step(), TrackFetcherStep::DownloadTrackAlbum)
+    }
+
+    #[test]
+    fn should_return_upload_to_radioterio_if_path_to_downloaded_file() {
+        let state = TrackFetcherState {
+            current_topic_id: Some("topic".into()),
+            current_download_id: Some("download".into()),
+            path_to_downloaded_file: Some("path/to/file".into()),
+            ..TrackFetcherState::default()
+        };
+
+        assert_eq!(state.get_step(), TrackFetcherStep::UploadTrackToRadioterio)
+    }
+
+    #[test]
+    fn should_return_add_track_to_radioterio_channel_if_track_id() {
+        let state = TrackFetcherState {
+            current_topic_id: Some("topic".into()),
+            current_download_id: Some("download".into()),
+            path_to_downloaded_file: Some("path/to/file".into()),
+            radioterio_track_id: Some(1.into()),
+            ..TrackFetcherState::default()
+        };
+
+        assert_eq!(
+            state.get_step(),
+            TrackFetcherStep::AddTrackToRadioterioChannel
+        )
+    }
+
+    #[test]
+    fn should_return_finish_if_radioterio_link_id() {
+        let state = TrackFetcherState {
+            current_topic_id: Some("topic".into()),
+            current_download_id: Some("download".into()),
+            path_to_downloaded_file: Some("path/to/file".into()),
+            radioterio_track_id: Some(1.into()),
+            radioterio_link_id: Some("foo".into()),
+            ..TrackFetcherState::default()
+        };
+
+        assert_eq!(state.get_step(), TrackFetcherStep::Finish)
+    }
 }
