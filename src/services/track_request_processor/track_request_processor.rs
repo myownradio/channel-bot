@@ -1,8 +1,11 @@
-use crate::services::track_request_processor::traits::{StateStorage, StateStorageError};
+use crate::services::track_request_processor::traits::{
+    SearchProvider, SearchProviderError, SearchResult, StateStorage, StateStorageError,
+};
 use crate::services::track_request_processor::types::{
     RequestId, TrackFetcherContext, TrackFetcherState, TrackFetcherStep,
 };
 use crate::types::{AudioMetadata, RadioterioChannelId, UserId};
+use std::collections::HashSet;
 use std::sync::Arc;
 use tracing::{debug, error, info};
 use uuid::Uuid;
@@ -17,17 +20,26 @@ pub(crate) enum CreateJobError {
 pub(crate) enum ProceedNextStepError {
     #[error(transparent)]
     StateStorageError(#[from] StateStorageError),
+    #[error(transparent)]
+    SearchProviderError(#[from] SearchProviderError),
     #[error("Job has not been found in the storage")]
     JobNotFound,
 }
 
 pub(crate) struct TrackRequestProcessor {
     state_storage: Arc<dyn StateStorage>,
+    search_provider: Arc<dyn SearchProvider>,
 }
 
 impl TrackRequestProcessor {
-    pub(crate) fn new(state_storage: Arc<dyn StateStorage>) -> Self {
-        Self { state_storage }
+    pub(crate) fn new(
+        state_storage: Arc<dyn StateStorage>,
+        search_provider: Arc<dyn SearchProvider>,
+    ) -> Self {
+        Self {
+            state_storage,
+            search_provider,
+        }
     }
 
     pub(crate) async fn create_track_request(
@@ -131,7 +143,28 @@ impl TrackRequestProcessor {
         ctx: &TrackFetcherContext,
         state: &mut TrackFetcherState,
     ) -> Result<(), ProceedNextStepError> {
-        Ok(())
+        let query = format!("{} - {}", ctx.track_artist, ctx.track_album);
+        let results = self.search_provider.search(&query).await?;
+
+        let tried_topics_set = state.tried_topics.iter().collect::<HashSet<_>>();
+
+        let next_result = results
+            .into_iter()
+            .filter(|r| !tried_topics_set.contains(&r.topic_id))
+            .next();
+
+        match next_result {
+            Some(result) => {
+                let SearchResult { topic_id, title } = result;
+                debug!(%topic_id, title, "Found result possibly containing the requested track");
+                state.current_topic_id.replace(topic_id);
+                Ok(())
+            }
+            None => {
+                debug!("Requested track has not get been found...");
+                todo!();
+            }
+        }
     }
 
     async fn get_album_url(

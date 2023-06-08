@@ -18,6 +18,12 @@ impl Into<TopicId> for &str {
     }
 }
 
+impl std::fmt::Display for TopicId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize)]
 pub(crate) struct RadioterioTrackId(u64);
 
