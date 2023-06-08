@@ -1,6 +1,6 @@
 use crate::services::track_request_processor::traits::{
-    Downloader, DownloaderError, DownloadingStatus, SearchProvider, SearchProviderError,
-    SearchResult, StateStorage, StateStorageError,
+    Downloader, DownloaderError, DownloadingStatus, MetadataService, SearchProvider,
+    SearchProviderError, SearchResult, StateStorage, StateStorageError,
 };
 use crate::services::track_request_processor::types::{
     RequestId, TrackFetcherContext, TrackFetcherState, TrackFetcherStep,
@@ -33,6 +33,7 @@ pub(crate) struct TrackRequestProcessor {
     state_storage: Arc<dyn StateStorage>,
     search_provider: Arc<dyn SearchProvider>,
     downloader: Arc<dyn Downloader>,
+    metadata_service: Arc<dyn MetadataService>,
 }
 
 impl TrackRequestProcessor {
@@ -40,11 +41,13 @@ impl TrackRequestProcessor {
         state_storage: Arc<dyn StateStorage>,
         search_provider: Arc<dyn SearchProvider>,
         downloader: Arc<dyn Downloader>,
+        metadata_service: Arc<dyn MetadataService>,
     ) -> Self {
         Self {
             state_storage,
             search_provider,
             downloader,
+            metadata_service,
         }
     }
 
@@ -235,19 +238,43 @@ impl TrackRequestProcessor {
 
         let downloading_entry = self.downloader.get(&download_id).await?;
 
-        match downloading_entry {
-            Some(entry) => {
-                if matches!(entry.status, DownloadingStatus::Complete) {
-                    debug!(%download_id, "Download complete");
-                    // TODO: Check downloaded files for the requested audio track...
-                    todo!();
-                }
-            }
+        let entry = match downloading_entry {
+            Some(entry) => entry,
             None => {
                 warn!(%download_id, "Download has not been found");
                 state.current_download_id.take();
+                return Ok(());
+            }
+        };
+
+        if !matches!(entry.status, DownloadingStatus::Complete) {
+            // Still downloading
+            return Ok(());
+        }
+
+        debug!(%download_id, "Download complete");
+
+        for file in entry.files {
+            let metadata = match self.metadata_service.get_audio_metadata(&file).await? {
+                Some(metadata) => metadata,
+                None => {
+                    continue;
+                }
+            };
+
+            if metadata.artist == ctx.track_artist && metadata.title == ctx.track_title {
+                state.path_to_downloaded_file.replace(file);
+                return Ok(());
             }
         }
+
+        info!("Downloaded audio album does not contain the requested audio track");
+
+        if let Some(topic_id) = state.current_topic_id.take() {
+            state.tried_topics.push(topic_id);
+        }
+        state.current_download_id.take();
+        state.current_url.take();
 
         Ok(())
     }
@@ -257,7 +284,7 @@ impl TrackRequestProcessor {
         ctx: &TrackFetcherContext,
         state: &mut TrackFetcherState,
     ) -> Result<(), ProceedNextStepError> {
-        Ok(())
+        todo!();
     }
 
     async fn add_to_radioterio_channel(
@@ -265,6 +292,6 @@ impl TrackRequestProcessor {
         ctx: &TrackFetcherContext,
         state: &mut TrackFetcherState,
     ) -> Result<(), ProceedNextStepError> {
-        Ok(())
+        todo!();
     }
 }

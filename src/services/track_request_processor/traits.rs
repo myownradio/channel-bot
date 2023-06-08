@@ -1,7 +1,7 @@
 use crate::services::track_request_processor::types::{
     RequestId, TrackFetcherContext, TrackFetcherState,
 };
-use crate::types::{DownloadId, TopicId, UserId};
+use crate::types::{AudioMetadata, DownloadId, TopicId, UserId};
 use async_trait::async_trait;
 
 #[derive(Debug, thiserror::Error)]
@@ -97,4 +97,18 @@ pub(crate) trait Downloader {
         download_id: &DownloadId,
     ) -> Result<Option<DownloadingEntry>, DownloaderError>;
     async fn delete(&self, download_id: &DownloadId) -> Result<(), DownloaderError>;
+}
+
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum MetadataServiceError {
+    #[error("Unexpected error")]
+    Unexpected,
+}
+
+#[async_trait]
+pub(crate) trait MetadataService {
+    async fn get_audio_metadata(
+        &self,
+        file_path: &str,
+    ) -> Result<Option<AudioMetadata>, MetadataServiceError>;
 }
