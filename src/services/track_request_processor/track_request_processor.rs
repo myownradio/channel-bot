@@ -165,7 +165,7 @@ impl TrackRequestProcessor {
     #[instrument(skip(self))]
     async fn search_audio_album(
         &self,
-        user_id: &UserId,
+        _user_id: &UserId,
         ctx: &TrackFetcherContext,
         state: &mut TrackFetcherState,
     ) -> Result<(), ProceedNextStepError> {
@@ -196,8 +196,8 @@ impl TrackRequestProcessor {
     #[instrument(skip(self))]
     async fn get_album_url(
         &self,
-        user_id: &UserId,
-        ctx: &TrackFetcherContext,
+        _user_id: &UserId,
+        _ctx: &TrackFetcherContext,
         state: &mut TrackFetcherState,
     ) -> Result<(), ProceedNextStepError> {
         let topic_id = state
@@ -224,8 +224,8 @@ impl TrackRequestProcessor {
     #[instrument(skip(self))]
     async fn download_album(
         &self,
-        user_id: &UserId,
-        ctx: &TrackFetcherContext,
+        _user_id: &UserId,
+        _ctx: &TrackFetcherContext,
         state: &mut TrackFetcherState,
     ) -> Result<(), ProceedNextStepError> {
         let url = state
@@ -246,7 +246,7 @@ impl TrackRequestProcessor {
     #[instrument(skip(self))]
     async fn check_download_status(
         &self,
-        user_id: &UserId,
+        _user_id: &UserId,
         ctx: &TrackFetcherContext,
         state: &mut TrackFetcherState,
     ) -> Result<(), ProceedNextStepError> {
@@ -303,7 +303,7 @@ impl TrackRequestProcessor {
     async fn upload_to_radio_manager(
         &self,
         user_id: &UserId,
-        ctx: &TrackFetcherContext,
+        _ctx: &TrackFetcherContext,
         state: &mut TrackFetcherState,
     ) -> Result<(), ProceedNextStepError> {
         let path = state
