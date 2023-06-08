@@ -1,5 +1,31 @@
-use crate::types::{DownloadId, RadioterioChannelId, RadioterioLinkId, RadioterioTrackId, TopicId};
+use crate::types::{
+    DownloadId, RadioterioChannelId, RadioterioLinkId, RadioterioTrackId, TopicId, UserId,
+};
 use serde::Serialize;
+use std::ops::Deref;
+use uuid::Uuid;
+
+pub(crate) struct RequestId(Uuid);
+
+impl Deref for RequestId {
+    type Target = Uuid;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Into<RequestId> for Uuid {
+    fn into(self) -> RequestId {
+        RequestId(self)
+    }
+}
+
+impl std::fmt::Display for RequestId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 #[derive(Debug, Serialize)]
 pub(crate) struct TrackFetcherContext {
@@ -38,15 +64,15 @@ pub(crate) struct TrackFetcherState {
 impl TrackFetcherState {
     pub(crate) fn get_step(&self) -> TrackFetcherStep {
         if self.current_topic_id.is_none() {
-            TrackFetcherStep::FindTrackAlbum
+            TrackFetcherStep::SearchAudioAlbum
         } else if self.current_download_id.is_none() {
-            TrackFetcherStep::DownloadTorrent
+            TrackFetcherStep::GetAlbumURL
         } else if self.path_to_downloaded_file.is_none() {
-            TrackFetcherStep::DownloadTrackAlbum
+            TrackFetcherStep::DownloadAlbum
         } else if self.radioterio_track_id.is_none() {
-            TrackFetcherStep::UploadTrackToRadioterio
+            TrackFetcherStep::UploadToRadioterio
         } else if self.radioterio_link_id.is_none() {
-            TrackFetcherStep::AddTrackToRadioterioChannel
+            TrackFetcherStep::AddToRadioterioChannel
         } else {
             TrackFetcherStep::Finish
         }
@@ -55,23 +81,23 @@ impl TrackFetcherState {
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum TrackFetcherStep {
-    FindTrackAlbum,
-    DownloadTorrent,
-    DownloadTrackAlbum,
-    UploadTrackToRadioterio,
-    AddTrackToRadioterioChannel,
+    SearchAudioAlbum,
+    GetAlbumURL,
+    DownloadAlbum,
+    UploadToRadioterio,
+    AddToRadioterioChannel,
     Finish,
 }
 
 #[cfg(test)]
 mod track_fetcher_step_tests {
-    use crate::services::track_fetcher::types::{TrackFetcherState, TrackFetcherStep};
+    use crate::services::track_request_processor::types::{TrackFetcherState, TrackFetcherStep};
 
     #[test]
     fn should_return_find_track_album_by_default() {
         let state = TrackFetcherState::default();
 
-        assert_eq!(state.get_step(), TrackFetcherStep::FindTrackAlbum)
+        assert_eq!(state.get_step(), TrackFetcherStep::SearchAudioAlbum)
     }
 
     #[test]
@@ -81,7 +107,7 @@ mod track_fetcher_step_tests {
             ..TrackFetcherState::default()
         };
 
-        assert_eq!(state.get_step(), TrackFetcherStep::DownloadTorrent)
+        assert_eq!(state.get_step(), TrackFetcherStep::GetAlbumURL)
     }
 
     #[test]
@@ -92,7 +118,7 @@ mod track_fetcher_step_tests {
             ..TrackFetcherState::default()
         };
 
-        assert_eq!(state.get_step(), TrackFetcherStep::DownloadTrackAlbum)
+        assert_eq!(state.get_step(), TrackFetcherStep::DownloadAlbum)
     }
 
     #[test]
@@ -104,7 +130,7 @@ mod track_fetcher_step_tests {
             ..TrackFetcherState::default()
         };
 
-        assert_eq!(state.get_step(), TrackFetcherStep::UploadTrackToRadioterio)
+        assert_eq!(state.get_step(), TrackFetcherStep::UploadToRadioterio)
     }
 
     #[test]
@@ -117,10 +143,7 @@ mod track_fetcher_step_tests {
             ..TrackFetcherState::default()
         };
 
-        assert_eq!(
-            state.get_step(),
-            TrackFetcherStep::AddTrackToRadioterioChannel
-        )
+        assert_eq!(state.get_step(), TrackFetcherStep::AddToRadioterioChannel)
     }
 
     #[test]

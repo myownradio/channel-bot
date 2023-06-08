@@ -63,8 +63,8 @@ impl std::fmt::Display for RadioterioLinkId {
     }
 }
 
-#[derive(Eq, PartialEq, Clone, Hash, Debug)]
-pub(crate) struct UserId(pub(crate) u64);
+#[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize)]
+pub(crate) struct UserId(u64);
 
 impl std::fmt::Display for UserId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
