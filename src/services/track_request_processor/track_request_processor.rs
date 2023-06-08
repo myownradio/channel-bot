@@ -1,6 +1,6 @@
 use crate::services::track_request_processor::traits::{
-    Downloader, DownloaderError, SearchProvider, SearchProviderError, SearchResult, StateStorage,
-    StateStorageError,
+    Downloader, DownloaderError, DownloadingStatus, SearchProvider, SearchProviderError,
+    SearchResult, StateStorage, StateStorageError,
 };
 use crate::services::track_request_processor::types::{
     RequestId, TrackFetcherContext, TrackFetcherState, TrackFetcherStep,
@@ -132,6 +132,9 @@ impl TrackRequestProcessor {
             TrackFetcherStep::DownloadAlbum => {
                 self.download_album(ctx, state).await?;
             }
+            TrackFetcherStep::CheckDownloadStatus => {
+                self.check_download_status(ctx, state).await?;
+            }
             TrackFetcherStep::UploadToRadioterio => {
                 self.upload_to_radioterio(ctx, state).await?;
             }
@@ -180,6 +183,7 @@ impl TrackRequestProcessor {
     ) -> Result<(), ProceedNextStepError> {
         let topic_id = state
             .current_topic_id
+            .clone()
             .take()
             .expect("Current topic_id should be defined");
 
@@ -187,10 +191,7 @@ impl TrackRequestProcessor {
 
         match self.search_provider.get_url(&topic_id).await? {
             Some(url) => {
-                debug!("Starting download of the audio album...");
-                let download_id = self.downloader.create("tmp/downloads", url).await?;
-                debug!(%download_id, "Started download of the audio album...");
-                state.current_download_id.replace(download_id);
+                state.current_url.replace(url);
                 Ok(())
             }
             None => {
@@ -206,8 +207,51 @@ impl TrackRequestProcessor {
         ctx: &TrackFetcherContext,
         state: &mut TrackFetcherState,
     ) -> Result<(), ProceedNextStepError> {
+        let url = state
+            .current_url
+            .clone()
+            .take()
+            .expect("Current current_url should be defined");
+
+        let download_id = self.downloader.create("tmp/downloads", url).await?;
+
+        debug!(%download_id, "Started download of the audio album...");
+
+        state.current_download_id.replace(download_id);
+
         Ok(())
     }
+
+    async fn check_download_status(
+        &self,
+        ctx: &TrackFetcherContext,
+        state: &mut TrackFetcherState,
+    ) -> Result<(), ProceedNextStepError> {
+        let download_id = state
+            .current_download_id
+            .clone()
+            .take()
+            .expect("Current current_download_id should be defined");
+
+        let downloading_entry = self.downloader.get(&download_id).await?;
+
+        match downloading_entry {
+            Some(entry) => {
+                if matches!(entry.status, DownloadingStatus::Complete) {
+                    debug!(%download_id, "Download complete");
+                    // TODO: Check downloaded files for the requested audio track...
+                    todo!();
+                }
+            }
+            None => {
+                warn!(%download_id, "Download has not been found");
+                state.current_download_id.take();
+            }
+        }
+
+        Ok(())
+    }
+
     async fn upload_to_radioterio(
         &self,
         ctx: &TrackFetcherContext,

@@ -55,6 +55,7 @@ impl TrackFetcherContext {
 pub(crate) struct TrackFetcherState {
     pub(crate) tried_topics: Vec<TopicId>,
     pub(crate) current_topic_id: Option<TopicId>,
+    pub(crate) current_url: Option<Vec<u8>>,
     pub(crate) current_download_id: Option<DownloadId>,
     pub(crate) path_to_downloaded_file: Option<String>,
     pub(crate) radioterio_track_id: Option<RadioterioTrackId>,
@@ -65,10 +66,12 @@ impl TrackFetcherState {
     pub(crate) fn get_step(&self) -> TrackFetcherStep {
         if self.current_topic_id.is_none() {
             TrackFetcherStep::SearchAudioAlbum
-        } else if self.current_download_id.is_none() {
+        } else if self.current_url.is_none() {
             TrackFetcherStep::GetAlbumURL
-        } else if self.path_to_downloaded_file.is_none() {
+        } else if self.current_download_id.is_none() {
             TrackFetcherStep::DownloadAlbum
+        } else if self.path_to_downloaded_file.is_none() {
+            TrackFetcherStep::CheckDownloadStatus
         } else if self.radioterio_track_id.is_none() {
             TrackFetcherStep::UploadToRadioterio
         } else if self.radioterio_link_id.is_none() {
@@ -84,6 +87,7 @@ pub(crate) enum TrackFetcherStep {
     SearchAudioAlbum,
     GetAlbumURL,
     DownloadAlbum,
+    CheckDownloadStatus,
     UploadToRadioterio,
     AddToRadioterioChannel,
     Finish,
@@ -94,14 +98,14 @@ mod track_fetcher_step_tests {
     use crate::services::track_request_processor::types::{TrackFetcherState, TrackFetcherStep};
 
     #[test]
-    fn should_return_find_track_album_by_default() {
+    fn should_return_search_audio_album_by_default() {
         let state = TrackFetcherState::default();
 
         assert_eq!(state.get_step(), TrackFetcherStep::SearchAudioAlbum)
     }
 
     #[test]
-    fn should_return_download_torrent_if_current_topic() {
+    fn should_return_get_album_url_if_current_topic_id_is_set() {
         let state = TrackFetcherState {
             current_topic_id: Some("topic".into()),
             ..TrackFetcherState::default()
@@ -111,10 +115,10 @@ mod track_fetcher_step_tests {
     }
 
     #[test]
-    fn should_return_download_track_album_if_current_download() {
+    fn should_return_download_album_if_current_url_is_set() {
         let state = TrackFetcherState {
             current_topic_id: Some("topic".into()),
-            current_download_id: Some("download".into()),
+            current_url: Some(vec![]),
             ..TrackFetcherState::default()
         };
 
@@ -122,7 +126,19 @@ mod track_fetcher_step_tests {
     }
 
     #[test]
-    fn should_return_upload_to_radioterio_if_path_to_downloaded_file() {
+    fn should_return_check_download_status_if_current_download_id_is_set() {
+        let state = TrackFetcherState {
+            current_topic_id: Some("topic".into()),
+            current_url: Some(vec![]),
+            current_download_id: Some("download".into()),
+            ..TrackFetcherState::default()
+        };
+
+        assert_eq!(state.get_step(), TrackFetcherStep::CheckDownloadStatus)
+    }
+
+    #[test]
+    fn should_return_upload_to_radioterio_if_path_to_downloaded_file_is_set() {
         let state = TrackFetcherState {
             current_topic_id: Some("topic".into()),
             current_download_id: Some("download".into()),
@@ -134,7 +150,7 @@ mod track_fetcher_step_tests {
     }
 
     #[test]
-    fn should_return_add_track_to_radioterio_channel_if_track_id() {
+    fn should_return_add_track_to_radioterio_channel_if_radioterio_track_id_is_set() {
         let state = TrackFetcherState {
             current_topic_id: Some("topic".into()),
             current_download_id: Some("download".into()),
@@ -147,7 +163,7 @@ mod track_fetcher_step_tests {
     }
 
     #[test]
-    fn should_return_finish_if_radioterio_link_id() {
+    fn should_return_finish_if_radioterio_link_id_is_set() {
         let state = TrackFetcherState {
             current_topic_id: Some("topic".into()),
             current_download_id: Some("download".into()),

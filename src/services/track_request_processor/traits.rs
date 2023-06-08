@@ -77,12 +77,12 @@ pub(crate) enum DownloaderError {
 
 pub(crate) enum DownloadingStatus {
     Downloading,
-    Finished,
+    Complete,
 }
 
 pub(crate) struct DownloadingEntry {
-    status: DownloadingStatus,
-    files: Vec<String>,
+    pub(crate) status: DownloadingStatus,
+    pub(crate) files: Vec<String>,
 }
 
 #[async_trait]
