@@ -9,6 +9,12 @@ impl Into<DownloadId> for &str {
     }
 }
 
+impl std::fmt::Display for DownloadId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize)]
 pub(crate) struct TopicId(String);
 

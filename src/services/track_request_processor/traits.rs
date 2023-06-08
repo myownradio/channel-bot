@@ -1,7 +1,7 @@
 use crate::services::track_request_processor::types::{
     RequestId, TrackFetcherContext, TrackFetcherState,
 };
-use crate::types::{TopicId, UserId};
+use crate::types::{DownloadId, TopicId, UserId};
 use async_trait::async_trait;
 
 #[derive(Debug, thiserror::Error)]
@@ -67,4 +67,34 @@ pub(crate) struct SearchResult {
 pub(crate) trait SearchProvider {
     async fn search(&self, query: &str) -> Result<Vec<SearchResult>, SearchProviderError>;
     async fn get_url(&self, topic_id: &TopicId) -> Result<Option<Vec<u8>>, SearchProviderError>;
+}
+
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum DownloaderError {
+    #[error("Unexpected error")]
+    Unexpected,
+}
+
+pub(crate) enum DownloadingStatus {
+    Downloading,
+    Finished,
+}
+
+pub(crate) struct DownloadingEntry {
+    status: DownloadingStatus,
+    files: Vec<String>,
+}
+
+#[async_trait]
+pub(crate) trait Downloader {
+    async fn create(
+        &self,
+        path_to_download: &str,
+        url: Vec<u8>,
+    ) -> Result<DownloadId, DownloaderError>;
+    async fn get(
+        &self,
+        download_id: &DownloadId,
+    ) -> Result<Option<DownloadingEntry>, DownloaderError>;
+    async fn delete(&self, download_id: &DownloadId) -> Result<(), DownloaderError>;
 }

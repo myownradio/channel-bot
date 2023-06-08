@@ -1,5 +1,6 @@
 use crate::services::track_request_processor::traits::{
-    SearchProvider, SearchProviderError, SearchResult, StateStorage, StateStorageError,
+    Downloader, DownloaderError, SearchProvider, SearchProviderError, SearchResult, StateStorage,
+    StateStorageError,
 };
 use crate::services::track_request_processor::types::{
     RequestId, TrackFetcherContext, TrackFetcherState, TrackFetcherStep,
@@ -7,7 +8,7 @@ use crate::services::track_request_processor::types::{
 use crate::types::{AudioMetadata, RadioterioChannelId, UserId};
 use std::collections::HashSet;
 use std::sync::Arc;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]
@@ -22,6 +23,8 @@ pub(crate) enum ProceedNextStepError {
     StateStorageError(#[from] StateStorageError),
     #[error(transparent)]
     SearchProviderError(#[from] SearchProviderError),
+    #[error(transparent)]
+    DownloaderError(#[from] DownloaderError),
     #[error("Job has not been found in the storage")]
     JobNotFound,
 }
@@ -29,16 +32,19 @@ pub(crate) enum ProceedNextStepError {
 pub(crate) struct TrackRequestProcessor {
     state_storage: Arc<dyn StateStorage>,
     search_provider: Arc<dyn SearchProvider>,
+    downloader: Arc<dyn Downloader>,
 }
 
 impl TrackRequestProcessor {
     pub(crate) fn new(
         state_storage: Arc<dyn StateStorage>,
         search_provider: Arc<dyn SearchProvider>,
+        downloader: Arc<dyn Downloader>,
     ) -> Self {
         Self {
             state_storage,
             search_provider,
+            downloader,
         }
     }
 
@@ -172,7 +178,27 @@ impl TrackRequestProcessor {
         ctx: &TrackFetcherContext,
         state: &mut TrackFetcherState,
     ) -> Result<(), ProceedNextStepError> {
-        Ok(())
+        let topic_id = state
+            .current_topic_id
+            .take()
+            .expect("Current topic_id should be defined");
+
+        debug!("Getting URL to download the audio album...");
+
+        match self.search_provider.get_url(&topic_id).await? {
+            Some(url) => {
+                debug!("Starting download of the audio album...");
+                let download_id = self.downloader.create("tmp/downloads", url).await?;
+                debug!(%download_id, "Started download of the audio album...");
+                state.current_download_id.replace(download_id);
+                Ok(())
+            }
+            None => {
+                warn!("The current topic is gone. Going to look for another one.");
+                state.tried_topics.push(topic_id);
+                Ok(())
+            }
+        }
     }
 
     async fn download_album(
