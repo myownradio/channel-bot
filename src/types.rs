@@ -1,4 +1,5 @@
 use serde::Serialize;
+use std::ops::Deref;
 
 #[derive(Eq, PartialEq, Clone, Debug, Serialize)]
 pub(crate) struct DownloadId(String);
@@ -6,6 +7,14 @@ pub(crate) struct DownloadId(String);
 impl Into<DownloadId> for &str {
     fn into(self) -> DownloadId {
         DownloadId(self.to_string())
+    }
+}
+
+impl Deref for DownloadId {
+    type Target = String;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
@@ -21,6 +30,14 @@ pub(crate) struct TopicId(String);
 impl Into<TopicId> for &str {
     fn into(self) -> TopicId {
         TopicId(self.to_string())
+    }
+}
+
+impl Deref for TopicId {
+    type Target = String;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

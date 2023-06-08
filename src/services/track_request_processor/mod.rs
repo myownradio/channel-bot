@@ -7,12 +7,12 @@ mod tests {
     use super::track_request_processor::TrackRequestProcessor;
     use super::traits::StateStorage;
     use crate::services::track_request_processor::traits::{
-        Downloader, DownloaderError, DownloadingEntry, MetadataService, MetadataServiceError,
-        RadioManager, RadioManagerError, SearchProvider, SearchProviderError, SearchResult,
-        StateStorageError,
+        Downloader, DownloaderError, DownloadingEntry, DownloadingStatus, MetadataService,
+        MetadataServiceError, RadioManager, RadioManagerError, SearchProvider, SearchProviderError,
+        SearchResult, StateStorageError,
     };
     use crate::services::track_request_processor::types::{
-        RequestId, TrackFetcherContext, TrackFetcherState,
+        RequestId, TrackFetcherContext, TrackFetcherState, TrackFetcherStep,
     };
     use crate::types::{
         AudioMetadata, DownloadId, RadioManagerChannelId, RadioManagerLinkId, RadioManagerTrackId,
@@ -168,14 +168,29 @@ mod tests {
     #[async_trait]
     impl SearchProvider for SearchProviderMock {
         async fn search(&self, query: &str) -> Result<Vec<SearchResult>, SearchProviderError> {
-            todo!()
+            match query {
+                "Robert Miles - Children" => Ok(vec![
+                    SearchResult {
+                        title: "Robert Miles - Children [MP3]".into(),
+                        topic_id: "t1".into(),
+                    },
+                    SearchResult {
+                        title: "Robert Miles - Children [FLAC]".into(),
+                        topic_id: "t2".into(),
+                    },
+                ]),
+                _ => Ok(vec![]),
+            }
         }
 
         async fn get_url(
             &self,
             topic_id: &TopicId,
         ) -> Result<Option<Vec<u8>>, SearchProviderError> {
-            todo!()
+            match (*topic_id).as_str() {
+                "t1" => Ok(Some(vec![1])),
+                _ => Ok(None),
+            }
         }
     }
 
@@ -185,17 +200,26 @@ mod tests {
     impl Downloader for DownloaderMock {
         async fn create(
             &self,
-            path_to_download: &str,
+            _path_to_download: &str,
             url: Vec<u8>,
         ) -> Result<DownloadId, DownloaderError> {
-            todo!()
+            match url[..] {
+                [1] => Ok("download1".into()),
+                _ => Err(DownloaderError::Unexpected),
+            }
         }
 
         async fn get(
             &self,
             download_id: &DownloadId,
         ) -> Result<Option<DownloadingEntry>, DownloaderError> {
-            todo!()
+            match (*download_id).as_str() {
+                "download1" => Ok(Some(DownloadingEntry {
+                    status: DownloadingStatus::Complete,
+                    files: vec!["path/to/track01.mp3".into(), "path/to/track02.mp3".into()],
+                })),
+                _ => Ok(None),
+            }
         }
 
         async fn delete(&self, download_id: &DownloadId) -> Result<(), DownloaderError> {
@@ -211,7 +235,19 @@ mod tests {
             &self,
             file_path: &str,
         ) -> Result<Option<AudioMetadata>, MetadataServiceError> {
-            todo!()
+            match file_path {
+                "path/to/track01.mp3" => Ok(Some(AudioMetadata {
+                    title: "Fable".into(),
+                    artist: "Robert Miles".into(),
+                    album: "Dreamland".into(),
+                })),
+                "path/to/track02.mp3" => Ok(Some(AudioMetadata {
+                    title: "Children".into(),
+                    artist: "Robert Miles".into(),
+                    album: "Children".into(),
+                })),
+                _ => Ok(None),
+            }
         }
     }
 
@@ -224,7 +260,10 @@ mod tests {
             user_id: &UserId,
             path_to_audio_file: &str,
         ) -> Result<RadioManagerTrackId, RadioManagerError> {
-            todo!()
+            match path_to_audio_file {
+                "path/to/track02.mp3" => Ok(1.into()),
+                _ => Err(RadioManagerError::Unexpected),
+            }
         }
 
         async fn add_track_to_channel_playlist(
@@ -233,7 +272,7 @@ mod tests {
             track_id: &RadioManagerTrackId,
             channel_id: &RadioManagerChannelId,
         ) -> Result<RadioManagerLinkId, RadioManagerError> {
-            todo!()
+            Ok("link".into())
         }
     }
 
@@ -264,10 +303,44 @@ mod tests {
             .load_context(&user_id, &request_id)
             .await
             .unwrap();
-
         assert_eq!(stored_context.track_title, "Children");
         assert_eq!(stored_context.track_artist, "Robert Miles");
         assert_eq!(stored_context.track_album, "Children");
         assert_eq!(stored_context.target_channel_id, channel_id);
+
+        let stored_state = state_storage
+            .load_state(&user_id, &request_id)
+            .await
+            .unwrap();
+        assert_eq!(stored_state.get_step(), TrackFetcherStep::SearchAudioAlbum);
+    }
+
+    #[actix_rt::test]
+    async fn test_processing_track_request() {
+        let state_storage = Arc::new(StateStorageMock::new());
+
+        let processor = TrackRequestProcessor::new(
+            Arc::clone(&state_storage) as Arc<dyn StateStorage>,
+            Arc::new(SearchProviderMock),
+            Arc::new(DownloaderMock),
+            Arc::new(MetadataServiceMock),
+            Arc::new(RadioManagerMock),
+        );
+        let user_id = 1.into();
+        let metadata = AudioMetadata {
+            title: "Children".into(),
+            artist: "Robert Miles".into(),
+            album: "Children".into(),
+        };
+        let channel_id = 1.into();
+        let request_id = processor
+            .create_track_request(&user_id, &metadata, &channel_id)
+            .await
+            .unwrap();
+
+        processor
+            .process_track_request(&user_id, &request_id)
+            .await
+            .unwrap();
     }
 }
