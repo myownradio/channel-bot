@@ -1,7 +1,10 @@
 use crate::services::track_request_processor::types::{
     RequestId, TrackFetcherContext, TrackFetcherState,
 };
-use crate::types::{AudioMetadata, DownloadId, TopicId, UserId};
+use crate::types::{
+    AudioMetadata, DownloadId, RadioManagerChannelId, RadioManagerLinkId, RadioManagerTrackId,
+    TopicId, UserId,
+};
 use async_trait::async_trait;
 
 #[derive(Debug, thiserror::Error)]
@@ -111,4 +114,25 @@ pub(crate) trait MetadataService {
         &self,
         file_path: &str,
     ) -> Result<Option<AudioMetadata>, MetadataServiceError>;
+}
+
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum RadioManagerError {
+    #[error("Unexpected error")]
+    Unexpected,
+}
+
+#[async_trait]
+pub(crate) trait RadioManager {
+    async fn upload_audio_track(
+        &self,
+        user_id: &UserId,
+        path_to_audio_file: &str,
+    ) -> Result<RadioManagerTrackId, RadioManagerError>;
+    async fn add_track_to_channel_playlist(
+        &self,
+        user_id: &UserId,
+        track_id: &RadioManagerTrackId,
+        channel_id: &RadioManagerChannelId,
+    ) -> Result<RadioManagerLinkId, RadioManagerError>;
 }

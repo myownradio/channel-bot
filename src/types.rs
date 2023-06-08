@@ -31,45 +31,45 @@ impl std::fmt::Display for TopicId {
 }
 
 #[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize)]
-pub(crate) struct RadioterioTrackId(u64);
+pub(crate) struct RadioManagerTrackId(u64);
 
-impl Into<RadioterioTrackId> for u64 {
-    fn into(self) -> RadioterioTrackId {
-        RadioterioTrackId(self)
+impl Into<RadioManagerTrackId> for u64 {
+    fn into(self) -> RadioManagerTrackId {
+        RadioManagerTrackId(self)
     }
 }
 
-impl std::fmt::Display for RadioterioTrackId {
+impl std::fmt::Display for RadioManagerTrackId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
 #[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize)]
-pub(crate) struct RadioterioChannelId(u64);
+pub(crate) struct RadioManagerChannelId(u64);
 
-impl Into<RadioterioChannelId> for u64 {
-    fn into(self) -> RadioterioChannelId {
-        RadioterioChannelId(self)
+impl Into<RadioManagerChannelId> for u64 {
+    fn into(self) -> RadioManagerChannelId {
+        RadioManagerChannelId(self)
     }
 }
 
-impl std::fmt::Display for RadioterioChannelId {
+impl std::fmt::Display for RadioManagerChannelId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
 #[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize)]
-pub(crate) struct RadioterioLinkId(String);
+pub(crate) struct RadioManagerLinkId(String);
 
-impl Into<RadioterioLinkId> for &str {
-    fn into(self) -> RadioterioLinkId {
-        RadioterioLinkId(self.into())
+impl Into<RadioManagerLinkId> for &str {
+    fn into(self) -> RadioManagerLinkId {
+        RadioManagerLinkId(self.into())
     }
 }
 
-impl std::fmt::Display for RadioterioLinkId {
+impl std::fmt::Display for RadioManagerLinkId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }

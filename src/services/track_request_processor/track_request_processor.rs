@@ -1,11 +1,12 @@
 use crate::services::track_request_processor::traits::{
     Downloader, DownloaderError, DownloadingStatus, MetadataService, MetadataServiceError,
-    SearchProvider, SearchProviderError, SearchResult, StateStorage, StateStorageError,
+    RadioManager, RadioManagerError, SearchProvider, SearchProviderError, SearchResult,
+    StateStorage, StateStorageError,
 };
 use crate::services::track_request_processor::types::{
     RequestId, TrackFetcherContext, TrackFetcherState, TrackFetcherStep,
 };
-use crate::types::{AudioMetadata, RadioterioChannelId, UserId};
+use crate::types::{AudioMetadata, RadioManagerChannelId, UserId};
 use std::collections::HashSet;
 use std::sync::Arc;
 use tracing::{debug, error, info, instrument, warn};
@@ -27,6 +28,8 @@ pub(crate) enum ProceedNextStepError {
     DownloaderError(#[from] DownloaderError),
     #[error(transparent)]
     MetadataServiceError(#[from] MetadataServiceError),
+    #[error(transparent)]
+    RadioManagerError(#[from] RadioManagerError),
     #[error("Job has not been found in the storage")]
     JobNotFound,
 }
@@ -36,6 +39,7 @@ pub(crate) struct TrackRequestProcessor {
     search_provider: Arc<dyn SearchProvider>,
     downloader: Arc<dyn Downloader>,
     metadata_service: Arc<dyn MetadataService>,
+    radio_manager: Arc<dyn RadioManager>,
 }
 
 impl TrackRequestProcessor {
@@ -44,12 +48,14 @@ impl TrackRequestProcessor {
         search_provider: Arc<dyn SearchProvider>,
         downloader: Arc<dyn Downloader>,
         metadata_service: Arc<dyn MetadataService>,
+        radio_manager: Arc<dyn RadioManager>,
     ) -> Self {
         Self {
             state_storage,
             search_provider,
             downloader,
             metadata_service,
+            radio_manager,
         }
     }
 
@@ -58,7 +64,7 @@ impl TrackRequestProcessor {
         &self,
         user_id: &UserId,
         track_metadata: &AudioMetadata,
-        target_channel_id: &RadioterioChannelId,
+        target_channel_id: &RadioManagerChannelId,
     ) -> Result<RequestId, CreateJobError> {
         let request_id = Uuid::new_v4().into();
         let ctx = TrackFetcherContext::new(
@@ -143,11 +149,12 @@ impl TrackRequestProcessor {
             TrackFetcherStep::CheckDownloadStatus => {
                 self.check_download_status(user_id, ctx, state).await?;
             }
-            TrackFetcherStep::UploadToRadioterio => {
-                self.upload_to_radioterio(user_id, ctx, state).await?;
+            TrackFetcherStep::UploadToRadioManager => {
+                self.upload_to_radio_manager(user_id, ctx, state).await?;
             }
-            TrackFetcherStep::AddToRadioterioChannel => {
-                self.add_to_radioterio_channel(user_id, ctx, state).await?;
+            TrackFetcherStep::AddToRadioManagerChannel => {
+                self.add_to_radio_manager_channel(user_id, ctx, state)
+                    .await?;
             }
             TrackFetcherStep::Finish => (),
         }
@@ -293,22 +300,52 @@ impl TrackRequestProcessor {
     }
 
     #[instrument(skip(self))]
-    async fn upload_to_radioterio(
+    async fn upload_to_radio_manager(
         &self,
         user_id: &UserId,
         ctx: &TrackFetcherContext,
         state: &mut TrackFetcherState,
     ) -> Result<(), ProceedNextStepError> {
-        todo!();
+        let path = state
+            .path_to_downloaded_file
+            .clone()
+            .take()
+            .expect("Current path_to_downloaded_file should be defined");
+
+        info!("Uploading requested audio track to radio manager");
+
+        let track_id = self
+            .radio_manager
+            .upload_audio_track(user_id, &path)
+            .await?;
+
+        state.radio_manager_track_id.replace(track_id);
+
+        Ok(())
     }
 
     #[instrument(skip(self))]
-    async fn add_to_radioterio_channel(
+    async fn add_to_radio_manager_channel(
         &self,
         user_id: &UserId,
         ctx: &TrackFetcherContext,
         state: &mut TrackFetcherState,
     ) -> Result<(), ProceedNextStepError> {
-        todo!();
+        let track_id = state
+            .radio_manager_track_id
+            .clone()
+            .take()
+            .expect("Current path_to_downloaded_file should be defined");
+
+        info!("Adding uploaded audio track to radio manager channel");
+
+        let link_id = self
+            .radio_manager
+            .add_track_to_channel_playlist(user_id, &track_id, &ctx.target_channel_id)
+            .await?;
+
+        state.radio_manager_link_id.replace(link_id);
+
+        Ok(())
     }
 }

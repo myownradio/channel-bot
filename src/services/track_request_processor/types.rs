@@ -1,5 +1,5 @@
 use crate::types::{
-    DownloadId, RadioterioChannelId, RadioterioLinkId, RadioterioTrackId, TopicId, UserId,
+    DownloadId, RadioManagerChannelId, RadioManagerLinkId, RadioManagerTrackId, TopicId, UserId,
 };
 use serde::Serialize;
 use std::ops::Deref;
@@ -33,7 +33,7 @@ pub(crate) struct TrackFetcherContext {
     pub(crate) track_title: String,
     pub(crate) track_artist: String,
     pub(crate) track_album: String,
-    pub(crate) target_channel_id: RadioterioChannelId,
+    pub(crate) target_channel_id: RadioManagerChannelId,
 }
 
 impl TrackFetcherContext {
@@ -41,7 +41,7 @@ impl TrackFetcherContext {
         track_title: String,
         track_artist: String,
         track_album: String,
-        target_channel_id: RadioterioChannelId,
+        target_channel_id: RadioManagerChannelId,
     ) -> Self {
         Self {
             track_title,
@@ -59,8 +59,8 @@ pub(crate) struct TrackFetcherState {
     pub(crate) current_url: Option<Vec<u8>>,
     pub(crate) current_download_id: Option<DownloadId>,
     pub(crate) path_to_downloaded_file: Option<String>,
-    pub(crate) radioterio_track_id: Option<RadioterioTrackId>,
-    pub(crate) radioterio_link_id: Option<RadioterioLinkId>,
+    pub(crate) radio_manager_track_id: Option<RadioManagerTrackId>,
+    pub(crate) radio_manager_link_id: Option<RadioManagerLinkId>,
 }
 
 impl TrackFetcherState {
@@ -73,10 +73,10 @@ impl TrackFetcherState {
             TrackFetcherStep::DownloadAlbum
         } else if self.path_to_downloaded_file.is_none() {
             TrackFetcherStep::CheckDownloadStatus
-        } else if self.radioterio_track_id.is_none() {
-            TrackFetcherStep::UploadToRadioterio
-        } else if self.radioterio_link_id.is_none() {
-            TrackFetcherStep::AddToRadioterioChannel
+        } else if self.radio_manager_track_id.is_none() {
+            TrackFetcherStep::UploadToRadioManager
+        } else if self.radio_manager_link_id.is_none() {
+            TrackFetcherStep::AddToRadioManagerChannel
         } else {
             TrackFetcherStep::Finish
         }
@@ -89,8 +89,8 @@ pub(crate) enum TrackFetcherStep {
     GetAlbumURL,
     DownloadAlbum,
     CheckDownloadStatus,
-    UploadToRadioterio,
-    AddToRadioterioChannel,
+    UploadToRadioManager,
+    AddToRadioManagerChannel,
     Finish,
 }
 
@@ -148,7 +148,7 @@ mod track_fetcher_step_tests {
             ..TrackFetcherState::default()
         };
 
-        assert_eq!(state.get_step(), TrackFetcherStep::UploadToRadioterio)
+        assert_eq!(state.get_step(), TrackFetcherStep::UploadToRadioManager)
     }
 
     #[test]
@@ -158,11 +158,11 @@ mod track_fetcher_step_tests {
             current_url: Some(vec![]),
             current_download_id: Some("download".into()),
             path_to_downloaded_file: Some("path/to/file".into()),
-            radioterio_track_id: Some(1.into()),
+            radio_manager_track_id: Some(1.into()),
             ..TrackFetcherState::default()
         };
 
-        assert_eq!(state.get_step(), TrackFetcherStep::AddToRadioterioChannel)
+        assert_eq!(state.get_step(), TrackFetcherStep::AddToRadioManagerChannel)
     }
 
     #[test]
@@ -172,8 +172,8 @@ mod track_fetcher_step_tests {
             current_url: Some(vec![]),
             current_download_id: Some("download".into()),
             path_to_downloaded_file: Some("path/to/file".into()),
-            radioterio_track_id: Some(1.into()),
-            radioterio_link_id: Some("foo".into()),
+            radio_manager_track_id: Some(1.into()),
+            radio_manager_link_id: Some("foo".into()),
             ..TrackFetcherState::default()
         };
 
