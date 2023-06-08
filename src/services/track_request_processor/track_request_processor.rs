@@ -30,8 +30,6 @@ pub(crate) enum ProceedNextStepError {
     MetadataServiceError(#[from] MetadataServiceError),
     #[error(transparent)]
     RadioManagerError(#[from] RadioManagerError),
-    #[error("Job has not been found in the storage")]
-    JobNotFound,
 }
 
 pub(crate) struct TrackRequestProcessor {
@@ -95,16 +93,8 @@ impl TrackRequestProcessor {
     ) -> Result<(), ProceedNextStepError> {
         info!(%user_id, %request_id, "Processing track request");
 
-        let ctx = self
-            .state_storage
-            .load_context(user_id, request_id)
-            .await?
-            .ok_or_else(|| ProceedNextStepError::JobNotFound)?;
-        let mut state = self
-            .state_storage
-            .load_state(user_id, request_id)
-            .await?
-            .ok_or_else(|| ProceedNextStepError::JobNotFound)?;
+        let ctx = self.state_storage.load_context(user_id, request_id).await?;
+        let mut state = self.state_storage.load_state(user_id, request_id).await?;
 
         while !matches!(state.get_step(), TrackFetcherStep::Finish) {
             self.run_next_step(user_id, &ctx, &mut state).await?;

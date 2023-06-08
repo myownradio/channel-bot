@@ -5,7 +5,7 @@ use serde::Serialize;
 use std::ops::Deref;
 use uuid::Uuid;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct RequestId(Uuid);
 
 impl Deref for RequestId {
@@ -28,7 +28,7 @@ impl std::fmt::Display for RequestId {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub(crate) struct TrackFetcherContext {
     pub(crate) track_title: String,
     pub(crate) track_artist: String,
@@ -52,7 +52,7 @@ impl TrackFetcherContext {
     }
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize, Clone)]
 pub(crate) struct TrackFetcherState {
     pub(crate) tried_topics: Vec<TopicId>,
     pub(crate) current_topic_id: Option<TopicId>,

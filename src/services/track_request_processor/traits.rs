@@ -9,6 +9,10 @@ use async_trait::async_trait;
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum StateStorageError {
+    #[error("Object already exists")]
+    ObjectExists,
+    #[error("Object has not been found")]
+    ObjectNotFound,
     #[error("Unexpected error")]
     Unexpected,
 }
@@ -37,12 +41,12 @@ pub(crate) trait StateStorage {
         &self,
         user_id: &UserId,
         request_id: &RequestId,
-    ) -> Result<Option<TrackFetcherState>, StateStorageError>;
+    ) -> Result<TrackFetcherState, StateStorageError>;
     async fn load_context(
         &self,
         user_id: &UserId,
         request_id: &RequestId,
-    ) -> Result<Option<TrackFetcherContext>, StateStorageError>;
+    ) -> Result<TrackFetcherContext, StateStorageError>;
     async fn delete_state(
         &self,
         user_id: &UserId,
