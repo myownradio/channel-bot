@@ -1,6 +1,6 @@
 use crate::services::track_request_processor::traits::{
-    Downloader, DownloaderError, DownloadingStatus, MetadataService, SearchProvider,
-    SearchProviderError, SearchResult, StateStorage, StateStorageError,
+    Downloader, DownloaderError, DownloadingStatus, MetadataService, MetadataServiceError,
+    SearchProvider, SearchProviderError, SearchResult, StateStorage, StateStorageError,
 };
 use crate::services::track_request_processor::types::{
     RequestId, TrackFetcherContext, TrackFetcherState, TrackFetcherStep,
@@ -8,7 +8,7 @@ use crate::services::track_request_processor::types::{
 use crate::types::{AudioMetadata, RadioterioChannelId, UserId};
 use std::collections::HashSet;
 use std::sync::Arc;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, instrument, warn};
 use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]
@@ -25,6 +25,8 @@ pub(crate) enum ProceedNextStepError {
     SearchProviderError(#[from] SearchProviderError),
     #[error(transparent)]
     DownloaderError(#[from] DownloaderError),
+    #[error(transparent)]
+    MetadataServiceError(#[from] MetadataServiceError),
     #[error("Job has not been found in the storage")]
     JobNotFound,
 }
@@ -51,6 +53,7 @@ impl TrackRequestProcessor {
         }
     }
 
+    #[instrument(skip(self))]
     pub(crate) async fn create_track_request(
         &self,
         user_id: &UserId,
@@ -78,6 +81,7 @@ impl TrackRequestProcessor {
         Ok(request_id)
     }
 
+    #[instrument(skip(self))]
     pub(crate) async fn process_track_request(
         &self,
         user_id: &UserId,
@@ -115,6 +119,7 @@ impl TrackRequestProcessor {
         Ok(())
     }
 
+    #[instrument(skip(self))]
     async fn run_next_step(
         &self,
         user_id: &UserId,
@@ -127,22 +132,22 @@ impl TrackRequestProcessor {
 
         match step {
             TrackFetcherStep::SearchAudioAlbum => {
-                self.search_audio_album(ctx, state).await?;
+                self.search_audio_album(user_id, ctx, state).await?;
             }
             TrackFetcherStep::GetAlbumURL => {
-                self.get_album_url(ctx, state).await?;
+                self.get_album_url(user_id, ctx, state).await?;
             }
             TrackFetcherStep::DownloadAlbum => {
-                self.download_album(ctx, state).await?;
+                self.download_album(user_id, ctx, state).await?;
             }
             TrackFetcherStep::CheckDownloadStatus => {
-                self.check_download_status(ctx, state).await?;
+                self.check_download_status(user_id, ctx, state).await?;
             }
             TrackFetcherStep::UploadToRadioterio => {
-                self.upload_to_radioterio(ctx, state).await?;
+                self.upload_to_radioterio(user_id, ctx, state).await?;
             }
             TrackFetcherStep::AddToRadioterioChannel => {
-                self.add_to_radioterio_channel(ctx, state).await?;
+                self.add_to_radioterio_channel(user_id, ctx, state).await?;
             }
             TrackFetcherStep::Finish => (),
         }
@@ -150,8 +155,10 @@ impl TrackRequestProcessor {
         Ok(())
     }
 
+    #[instrument(skip(self))]
     async fn search_audio_album(
         &self,
+        user_id: &UserId,
         ctx: &TrackFetcherContext,
         state: &mut TrackFetcherState,
     ) -> Result<(), ProceedNextStepError> {
@@ -179,8 +186,10 @@ impl TrackRequestProcessor {
         }
     }
 
+    #[instrument(skip(self))]
     async fn get_album_url(
         &self,
+        user_id: &UserId,
         ctx: &TrackFetcherContext,
         state: &mut TrackFetcherState,
     ) -> Result<(), ProceedNextStepError> {
@@ -205,8 +214,10 @@ impl TrackRequestProcessor {
         }
     }
 
+    #[instrument(skip(self))]
     async fn download_album(
         &self,
+        user_id: &UserId,
         ctx: &TrackFetcherContext,
         state: &mut TrackFetcherState,
     ) -> Result<(), ProceedNextStepError> {
@@ -225,8 +236,10 @@ impl TrackRequestProcessor {
         Ok(())
     }
 
+    #[instrument(skip(self))]
     async fn check_download_status(
         &self,
+        user_id: &UserId,
         ctx: &TrackFetcherContext,
         state: &mut TrackFetcherState,
     ) -> Result<(), ProceedNextStepError> {
@@ -279,16 +292,20 @@ impl TrackRequestProcessor {
         Ok(())
     }
 
+    #[instrument(skip(self))]
     async fn upload_to_radioterio(
         &self,
+        user_id: &UserId,
         ctx: &TrackFetcherContext,
         state: &mut TrackFetcherState,
     ) -> Result<(), ProceedNextStepError> {
         todo!();
     }
 
+    #[instrument(skip(self))]
     async fn add_to_radioterio_channel(
         &self,
+        user_id: &UserId,
         ctx: &TrackFetcherContext,
         state: &mut TrackFetcherState,
     ) -> Result<(), ProceedNextStepError> {

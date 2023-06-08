@@ -5,6 +5,7 @@ use serde::Serialize;
 use std::ops::Deref;
 use uuid::Uuid;
 
+#[derive(Debug)]
 pub(crate) struct RequestId(Uuid);
 
 impl Deref for RequestId {
@@ -141,6 +142,7 @@ mod track_fetcher_step_tests {
     fn should_return_upload_to_radioterio_if_path_to_downloaded_file_is_set() {
         let state = TrackFetcherState {
             current_topic_id: Some("topic".into()),
+            current_url: Some(vec![]),
             current_download_id: Some("download".into()),
             path_to_downloaded_file: Some("path/to/file".into()),
             ..TrackFetcherState::default()
@@ -153,6 +155,7 @@ mod track_fetcher_step_tests {
     fn should_return_add_track_to_radioterio_channel_if_radioterio_track_id_is_set() {
         let state = TrackFetcherState {
             current_topic_id: Some("topic".into()),
+            current_url: Some(vec![]),
             current_download_id: Some("download".into()),
             path_to_downloaded_file: Some("path/to/file".into()),
             radioterio_track_id: Some(1.into()),
@@ -166,6 +169,7 @@ mod track_fetcher_step_tests {
     fn should_return_finish_if_radioterio_link_id_is_set() {
         let state = TrackFetcherState {
             current_topic_id: Some("topic".into()),
+            current_url: Some(vec![]),
             current_download_id: Some("download".into()),
             path_to_downloaded_file: Some("path/to/file".into()),
             radioterio_track_id: Some(1.into()),
