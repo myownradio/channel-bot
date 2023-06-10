@@ -175,11 +175,11 @@ mod tests {
                 "Robert Miles - Children" => Ok(vec![
                     SearchResult {
                         title: "Robert Miles - Children [MP3]".into(),
-                        topic_id: "t1".into(),
+                        topic_id: 1.into(),
                     },
                     SearchResult {
                         title: "Robert Miles - Children [FLAC]".into(),
-                        topic_id: "t2".into(),
+                        topic_id: 2.into(),
                     },
                 ]),
                 _ => Ok(vec![]),
@@ -190,8 +190,8 @@ mod tests {
             &self,
             topic_id: &TopicId,
         ) -> Result<Option<Vec<u8>>, SearchProviderError> {
-            match (*topic_id).as_str() {
-                "t1" => Ok(Some(vec![1])),
+            match **topic_id {
+                1 => Ok(Some(vec![1])),
                 _ => Ok(None),
             }
         }
