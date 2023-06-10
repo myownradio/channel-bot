@@ -1,7 +1,7 @@
 use crate::types::{
     DownloadId, RadioManagerChannelId, RadioManagerLinkId, RadioManagerTrackId, TopicId, UserId,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 use uuid::Uuid;
 
@@ -28,7 +28,7 @@ impl std::fmt::Display for RequestId {
     }
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct TrackFetcherContext {
     pub(crate) track_title: String,
     pub(crate) track_artist: String,
@@ -52,7 +52,7 @@ impl TrackFetcherContext {
     }
 }
 
-#[derive(Debug, Default, Serialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub(crate) struct TrackFetcherState {
     pub(crate) tried_topics: Vec<TopicId>,
     pub(crate) current_topic_id: Option<TopicId>,

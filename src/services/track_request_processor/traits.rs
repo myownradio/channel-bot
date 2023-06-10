@@ -9,10 +9,14 @@ use async_trait::async_trait;
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum StateStorageError {
+    #[error("Unable to deserialize object")]
+    SerdeJsonError(#[from] serde_json::Error),
     #[error("Object already exists")]
     ObjectExists,
     #[error("Object has not been found")]
     ObjectNotFound,
+    #[error("Unexpected error")]
+    SerdeError(),
     #[error("Unexpected error")]
     Unexpected,
 }

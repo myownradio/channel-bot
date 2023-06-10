@@ -1,7 +1,7 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 
-#[derive(Eq, PartialEq, Clone, Debug, Serialize)]
+#[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct DownloadId(String);
 
 impl Into<DownloadId> for &str {
@@ -24,7 +24,7 @@ impl std::fmt::Display for DownloadId {
     }
 }
 
-#[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize)]
+#[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize, Deserialize)]
 pub(crate) struct TopicId(String);
 
 impl Into<TopicId> for &str {
@@ -47,7 +47,7 @@ impl std::fmt::Display for TopicId {
     }
 }
 
-#[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize)]
+#[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize, Deserialize)]
 pub(crate) struct RadioManagerTrackId(u64);
 
 impl Into<RadioManagerTrackId> for u64 {
@@ -62,7 +62,7 @@ impl std::fmt::Display for RadioManagerTrackId {
     }
 }
 
-#[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize)]
+#[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize, Deserialize)]
 pub(crate) struct RadioManagerChannelId(u64);
 
 impl Into<RadioManagerChannelId> for u64 {
@@ -77,7 +77,7 @@ impl std::fmt::Display for RadioManagerChannelId {
     }
 }
 
-#[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize)]
+#[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize, Deserialize)]
 pub(crate) struct RadioManagerLinkId(String);
 
 impl Into<RadioManagerLinkId> for &str {
