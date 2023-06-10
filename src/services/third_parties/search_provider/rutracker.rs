@@ -23,7 +23,10 @@ pub(crate) struct RuTrackerClient {
 }
 
 impl RuTrackerClient {
-    pub(crate) async fn create(login: &str, password: &str) -> Result<Self, RuTrackerClientError> {
+    pub(crate) async fn create(
+        username: &str,
+        password: &str,
+    ) -> Result<Self, RuTrackerClientError> {
         let client = Client::builder()
             .redirect(Policy::none())
             .cookie_store(true)
