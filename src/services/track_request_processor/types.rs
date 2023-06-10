@@ -108,7 +108,7 @@ mod track_fetcher_step_tests {
     #[test]
     fn should_return_get_album_url_if_current_topic_id_is_set() {
         let state = TrackFetcherState {
-            current_topic_id: Some("topic".into()),
+            current_topic_id: Some(1.into()),
             ..TrackFetcherState::default()
         };
 
@@ -118,7 +118,7 @@ mod track_fetcher_step_tests {
     #[test]
     fn should_return_download_album_if_current_url_is_set() {
         let state = TrackFetcherState {
-            current_topic_id: Some("topic".into()),
+            current_topic_id: Some(1.into()),
             current_url: Some(vec![]),
             ..TrackFetcherState::default()
         };
@@ -129,7 +129,7 @@ mod track_fetcher_step_tests {
     #[test]
     fn should_return_check_download_status_if_current_download_id_is_set() {
         let state = TrackFetcherState {
-            current_topic_id: Some("topic".into()),
+            current_topic_id: Some(1.into()),
             current_url: Some(vec![]),
             current_download_id: Some("download".into()),
             ..TrackFetcherState::default()
@@ -141,7 +141,7 @@ mod track_fetcher_step_tests {
     #[test]
     fn should_return_upload_to_radioterio_if_path_to_downloaded_file_is_set() {
         let state = TrackFetcherState {
-            current_topic_id: Some("topic".into()),
+            current_topic_id: Some(1.into()),
             current_url: Some(vec![]),
             current_download_id: Some("download".into()),
             path_to_downloaded_file: Some("path/to/file".into()),
@@ -154,7 +154,7 @@ mod track_fetcher_step_tests {
     #[test]
     fn should_return_add_track_to_radioterio_channel_if_radioterio_track_id_is_set() {
         let state = TrackFetcherState {
-            current_topic_id: Some("topic".into()),
+            current_topic_id: Some(1.into()),
             current_url: Some(vec![]),
             current_download_id: Some("download".into()),
             path_to_downloaded_file: Some("path/to/file".into()),
@@ -168,7 +168,7 @@ mod track_fetcher_step_tests {
     #[test]
     fn should_return_finish_if_radioterio_link_id_is_set() {
         let state = TrackFetcherState {
-            current_topic_id: Some("topic".into()),
+            current_topic_id: Some(1.into()),
             current_url: Some(vec![]),
             current_download_id: Some("download".into()),
             path_to_downloaded_file: Some("path/to/file".into()),

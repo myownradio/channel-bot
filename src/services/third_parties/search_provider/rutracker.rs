@@ -10,6 +10,8 @@ const SUCCESSFUL_LOGIN_TEXT: &str = "log-out-icon";
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum RuTrackerClientError {
+    #[error(transparent)]
+    ReqwestError(#[from] reqwest::Error),
     #[error("Captcha verification is required.")]
     CaptchaVerificationIsRequired,
     #[error("Incorrect login or password.")]
@@ -69,3 +71,6 @@ impl RuTrackerClient {
         Ok(Self { client })
     }
 }
+
+#[cfg(test)]
+mod tests {}

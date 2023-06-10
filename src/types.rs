@@ -25,16 +25,16 @@ impl std::fmt::Display for DownloadId {
 }
 
 #[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize, Deserialize)]
-pub(crate) struct TopicId(String);
+pub(crate) struct TopicId(u64);
 
-impl Into<TopicId> for &str {
+impl Into<TopicId> for u64 {
     fn into(self) -> TopicId {
-        TopicId(self.to_string())
+        TopicId(self)
     }
 }
 
 impl Deref for TopicId {
-    type Target = String;
+    type Target = u64;
 
     fn deref(&self) -> &Self::Target {
         &self.0
