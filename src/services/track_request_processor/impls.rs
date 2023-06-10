@@ -1,9 +1,12 @@
-use crate::services::storage::memory_based_storage::MemoryBasedStorage;
-use crate::services::track_request_processor::traits::{StateStorage, StateStorageError};
+use crate::services::search_provider::RuTrackerClient;
+use crate::services::storage::MemoryBasedStorage;
+use crate::services::track_request_processor::traits::{
+    SearchProvider, SearchProviderError, SearchResult, StateStorage, StateStorageError,
+};
 use crate::services::track_request_processor::types::{
     RequestId, TrackFetcherContext, TrackFetcherState,
 };
-use crate::types::UserId;
+use crate::types::{TopicId, UserId};
 use async_trait::async_trait;
 
 #[async_trait]
@@ -117,5 +120,16 @@ impl StateStorage for MemoryBasedStorage {
         self.delete(&prefix, &key);
 
         Ok(())
+    }
+}
+
+#[async_trait]
+impl SearchProvider for RuTrackerClient {
+    async fn search(&self, query: &str) -> Result<Vec<SearchResult>, SearchProviderError> {
+        todo!()
+    }
+
+    async fn get_url(&self, topic_id: &TopicId) -> Result<Option<Vec<u8>>, SearchProviderError> {
+        todo!()
     }
 }
