@@ -15,21 +15,6 @@ pub(crate) struct SearchResult {
     pub(crate) seeds_number: u64,
 }
 
-impl SearchResult {
-    pub(crate) fn bitrate_hint(&self) -> Option<u64> {
-        let words = self.title.split(' ').collect::<Vec<_>>();
-        let bitrate_str = words.iter().zip(words.iter().skip(1)).find_map(|(a, b)| {
-            if b == &"kbps" {
-                Some(a.to_string())
-            } else {
-                None
-            }
-        });
-
-        bitrate_str.and_then(|s| s.parse::<u64>().ok())
-    }
-}
-
 const AUDIO_FORMAT_PRIORITY: [&str; 4] = ["FLAC", "MP3", "ALAC", "AAC"];
 const AUDIO_BITRATE_PRIORITY: [&str; 3] = ["lossless", "320 kbps", "256 kbps"];
 
@@ -67,8 +52,8 @@ fn get_search_result_priority(result: &SearchResult) -> usize {
     format_priority * 5 + bitrate_priority * 10 + seeds_priority
 }
 
-pub(crate) fn parse_search_results(raw: &str) -> Result<Vec<SearchResult>, ParseError> {
-    let html = Html::parse_document(raw);
+pub(crate) fn parse_search_results(raw_html: &str) -> Result<Vec<SearchResult>, ParseError> {
+    let html = Html::parse_document(raw_html);
 
     let table_row_selector = Selector::parse(r#"table.forumline tr"#)?;
     let table_entries = html.select(&table_row_selector);
@@ -128,8 +113,8 @@ pub(crate) struct Topic {
     pub(crate) download_id: i64,
 }
 
-pub(crate) fn parse_topic(raw: &str) -> Result<Option<Topic>, ParseError> {
-    let html = Html::parse_document(raw);
+pub(crate) fn parse_topic(raw_html: &str) -> Result<Option<Topic>, ParseError> {
+    let html = Html::parse_document(raw_html);
 
     let download_link_selector = Selector::parse(r#"table.attach tr td a.dl-link"#)?;
     let mut download_link = html.select(&download_link_selector);
