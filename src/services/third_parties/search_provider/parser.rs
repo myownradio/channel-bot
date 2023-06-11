@@ -123,6 +123,32 @@ pub(crate) fn parse_search_results(raw: &str) -> Result<Vec<SearchResult>, Parse
     Ok(results)
 }
 
+#[derive(Debug, PartialEq)]
+pub(crate) struct Topic {
+    pub(crate) download_id: i64,
+}
+
+pub(crate) fn parse_topic(raw: &str) -> Result<Option<Topic>, ParseError> {
+    let html = Html::parse_document(raw);
+
+    let download_link_selector = Selector::parse(r#"table.attach tr td a.dl-link"#)?;
+    let mut download_link = html.select(&download_link_selector);
+
+    let topic = download_link.next().and_then(|el| {
+        let download_id = el
+            .value()
+            .attr("href")?
+            .to_string()
+            .replace("dl.php?t=", "")
+            .parse()
+            .ok()?;
+
+        Some(Topic { download_id })
+    });
+
+    Ok(topic)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -144,5 +170,18 @@ mod tests {
 
         assert_eq!(7, results.len());
         assert_eq!(expected_results, results);
+    }
+
+    #[test]
+    fn test_parse_topic() {
+        let parsed_topic = parse_topic(include_str!("fixtures/topic.html"))
+            .expect("Expected successful parse results");
+
+        assert_eq!(
+            Some(Topic {
+                download_id: 5309922
+            }),
+            parsed_topic
+        );
     }
 }
