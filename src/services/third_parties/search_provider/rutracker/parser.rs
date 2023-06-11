@@ -110,7 +110,7 @@ pub(crate) fn parse_search_results(raw_html: &str) -> Result<Vec<SearchResult>, 
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct Topic {
-    pub(crate) torrent_id: i64,
+    pub(crate) torrent_id: u64,
 }
 
 pub(crate) fn parse_topic(raw_html: &str) -> Result<Option<Topic>, ParseError> {

@@ -141,6 +141,17 @@ impl SearchProvider for RuTrackerClient {
     }
 
     async fn get_url(&self, topic_id: &TopicId) -> Result<Option<Vec<u8>>, SearchProviderError> {
-        todo!()
+        let topic = self
+            .get_topic(topic_id)
+            .await
+            .map_err(|_| SearchProviderError::Unexpected)?
+            .ok_or_else(|| SearchProviderError::Unexpected)?;
+
+        let torrent_data = self
+            .download_torrent(topic.torrent_id)
+            .await
+            .map_err(|_| SearchProviderError::Unexpected)?;
+
+        Ok(Some(torrent_data))
     }
 }
