@@ -1,6 +1,5 @@
 mod services;
 pub(crate) mod types;
 
-fn main() {
-    println!("Hello, world!");
-}
+#[actix_rt::main]
+async fn main() {}

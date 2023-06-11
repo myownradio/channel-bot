@@ -110,7 +110,7 @@ pub(crate) fn parse_search_results(raw_html: &str) -> Result<Vec<SearchResult>, 
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct Topic {
-    pub(crate) download_id: i64,
+    pub(crate) torrent_id: i64,
 }
 
 pub(crate) fn parse_topic(raw_html: &str) -> Result<Option<Topic>, ParseError> {
@@ -128,10 +128,42 @@ pub(crate) fn parse_topic(raw_html: &str) -> Result<Option<Topic>, ParseError> {
             .parse()
             .ok()?;
 
-        Some(Topic { download_id })
+        Some(Topic {
+            torrent_id: download_id,
+        })
     });
 
     Ok(topic)
+}
+
+const CAPTCHA_IS_REQUIRED_TEXT: &str = "введите код подтверждения";
+const INCORRECT_PASSWORD_TEXT: &str = "неверный пароль";
+const SUCCESSFUL_LOGIN_TEXT: &str = "log-out-icon";
+
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum AuthError {
+    #[error("Captcha verification is required.")]
+    CaptchaVerificationIsRequired,
+    #[error("Incorrect login or password.")]
+    IncorrectPasswordText,
+    #[error("Unknown authentication error")]
+    UnknownAuthError,
+}
+
+pub(crate) fn parse_and_validate_auth_state(raw_html: &str) -> Result<(), AuthError> {
+    if raw_html.contains(CAPTCHA_IS_REQUIRED_TEXT) {
+        return Err(AuthError::CaptchaVerificationIsRequired);
+    }
+
+    if raw_html.contains(INCORRECT_PASSWORD_TEXT) {
+        return Err(AuthError::IncorrectPasswordText);
+    }
+
+    if !raw_html.contains(SUCCESSFUL_LOGIN_TEXT) {
+        return Err(AuthError::UnknownAuthError);
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -164,7 +196,7 @@ mod tests {
 
         assert_eq!(
             Some(Topic {
-                download_id: 5309922
+                torrent_id: 5309922
             }),
             parsed_topic
         );
