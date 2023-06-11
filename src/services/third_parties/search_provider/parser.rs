@@ -55,28 +55,27 @@ pub(crate) fn parse_search_results(raw: &str) -> Result<Vec<SearchResult>, Parse
     let mut results: Vec<_> = table_entries
         .skip(1)
         .filter(|el| el.children().filter(|el| el.value().is_element()).count() == 10)
-        .map(|el| {
+        .filter_map(|el| {
             let columns = el.select(&td_selector).collect::<Vec<_>>();
-            let link = columns[3].select(&href_selector).next().unwrap();
+            let link = columns[3].select(&href_selector).next()?;
 
             let title = link.inner_html().to_string();
-            let topic_id_raw = link.value().attr("href").unwrap_or_default().to_string();
 
-            let seeds = columns[6].select(&seeds_selector).next().unwrap();
-
+            let topic_id_raw = link.value().attr("href")?.to_string();
             let topic_id = topic_id_raw
                 .replace("viewtopic.php?t=", "")
                 .parse::<u64>()
-                .unwrap()
+                .ok()?
                 .into();
 
-            let seeds_number = seeds.inner_html().to_string().parse().unwrap();
+            let seeds = columns[6].select(&seeds_selector).next()?;
+            let seeds_number = seeds.inner_html().to_string().parse().ok()?;
 
-            SearchResult {
+            Some(SearchResult {
                 title,
                 topic_id,
                 seeds_number,
-            }
+            })
         })
         .filter(|r| !r.title.contains("image+.cue"))
         .collect();
