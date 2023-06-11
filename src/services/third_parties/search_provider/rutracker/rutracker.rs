@@ -1,4 +1,4 @@
-use crate::services::search_provider::parser::{
+use crate::services::search_provider::rutracker::parser::{
     parse_and_validate_auth_state, parse_search_results, AuthError, ParseError, SearchResult,
 };
 use reqwest::redirect::Policy;
@@ -16,6 +16,8 @@ pub(crate) enum RuTrackerClientError {
     ParseError(#[from] ParseError),
     #[error(transparent)]
     AuthError(#[from] AuthError),
+    #[error("Unexpected response status: {0}")]
+    BadStatus(StatusCode),
 }
 
 pub(crate) struct RuTrackerClient {
@@ -90,7 +92,20 @@ impl RuTrackerClient {
         &self,
         torrent_id: u64,
     ) -> Result<Vec<u8>, RuTrackerClientError> {
-        todo!();
+        let response = self
+            .client
+            .get(format!("{}/forum/dl.php?t={}", RU_TRACKER_HOST, torrent_id))
+            .send()
+            .await?;
+        let status = response.status();
+
+        if status != StatusCode::OK {
+            let raw_html = response.text().await?;
+            parse_and_validate_auth_state(&raw_html)?;
+            return Err(RuTrackerClientError::BadStatus(status));
+        }
+
+        Ok(response.bytes().await?.to_vec())
     }
 }
 
