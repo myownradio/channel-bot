@@ -4,6 +4,7 @@ mod traits;
 mod types;
 
 pub(crate) use track_request_processor::*;
+pub(crate) use traits::*;
 
 #[cfg(test)]
 mod tests {

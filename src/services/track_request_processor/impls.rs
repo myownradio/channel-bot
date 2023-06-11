@@ -126,7 +126,18 @@ impl StateStorage for MemoryBasedStorage {
 #[async_trait]
 impl SearchProvider for RuTrackerClient {
     async fn search(&self, query: &str) -> Result<Vec<SearchResult>, SearchProviderError> {
-        todo!()
+        self.search_music(query)
+            .await
+            .map(|results| {
+                results
+                    .into_iter()
+                    .map(|r| SearchResult {
+                        title: r.title,
+                        topic_id: r.topic_id,
+                    })
+                    .collect()
+            })
+            .map_err(|err| SearchProviderError::Unexpected)
     }
 
     async fn get_url(&self, topic_id: &TopicId) -> Result<Option<Vec<u8>>, SearchProviderError> {
