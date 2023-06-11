@@ -1,7 +1,8 @@
 use crate::config::Config;
 use crate::services::search_provider::RuTrackerClient;
 use crate::services::storage::MemoryBasedStorage;
-use crate::services::{SearchProvider, StateStorage, TrackRequestProcessor};
+use crate::services::transmission::TransmissionClient;
+use crate::services::{Downloader, SearchProvider, StateStorage, TrackRequestProcessor};
 use actix_rt::signal::unix;
 use actix_web::web::Data;
 use actix_web::{App, HttpServer};
@@ -27,21 +28,23 @@ async fn main() -> std::io::Result<()> {
 
     let state_storage = Arc::new(MemoryBasedStorage::new());
     let rutracker_client = Arc::new(
-        RuTrackerClient::create(
-            &config.rutracker_credentials.username,
-            &config.rutracker_credentials.password,
-        )
-        .await
-        .expect("Unable to initialize RuTracker client"),
+        RuTrackerClient::create(&config.rutracker.username, &config.rutracker.password)
+            .await
+            .expect("Unable to initialize RuTracker client"),
     );
-    let downloader = Arc::new(todo!());
+    let downloader = Arc::new(TransmissionClient::create(
+        config.transmission.transmission_rpc_endpoint.clone(),
+        config.transmission.username.clone(),
+        config.transmission.password.clone(),
+        config.transmission.download_directory.clone(),
+    ));
     let metadata_service = Arc::new(todo!());
     let radio_manager_client = Arc::new(todo!());
 
     let track_request_processor = TrackRequestProcessor::new(
         Arc::clone(&state_storage) as Arc<dyn StateStorage>,
         Arc::clone(&rutracker_client) as Arc<dyn SearchProvider>,
-        Arc::clone(&downloader),
+        Arc::clone(&downloader) as Arc<dyn Downloader>,
         Arc::clone(&metadata_service),
         Arc::clone(&radio_manager_client),
     );

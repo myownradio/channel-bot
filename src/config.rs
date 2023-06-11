@@ -17,13 +17,27 @@ pub(crate) struct RuTrackerCredentials {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+pub(crate) struct TransmissionConfig {
+    #[serde(rename = "transmission_rpc_endpoint")]
+    pub(crate) transmission_rpc_endpoint: String,
+    #[serde(rename = "transmission_download_directory")]
+    pub(crate) download_directory: String,
+    #[serde(default, rename = "transmission_username")]
+    pub(crate) username: Option<String>,
+    #[serde(default, rename = "transmission_password")]
+    pub(crate) password: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 pub(crate) struct Config {
     #[serde(default = "default_bind_address")]
     pub(crate) bind_address: String,
     #[serde(default = "default_shutdown_timeout")]
     pub(crate) shutdown_timeout: u64,
     #[serde(flatten)]
-    pub(crate) rutracker_credentials: RuTrackerCredentials,
+    pub(crate) rutracker: RuTrackerCredentials,
+    #[serde(flatten)]
+    pub(crate) transmission: TransmissionConfig,
 }
 
 impl Config {

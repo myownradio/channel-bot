@@ -6,7 +6,9 @@ use crate::services::track_request_processor::traits::{
 use crate::services::track_request_processor::types::{
     RequestId, TrackFetcherContext, TrackFetcherState,
 };
-use crate::types::{TopicId, UserId};
+use crate::services::transmission::TransmissionClient;
+use crate::services::{Downloader, DownloaderError, DownloadingEntry};
+use crate::types::{DownloadId, TopicId, UserId};
 use async_trait::async_trait;
 
 #[async_trait]
@@ -153,5 +155,26 @@ impl SearchProvider for RuTrackerClient {
             .map_err(|_| SearchProviderError::Unexpected)?;
 
         Ok(Some(torrent_data))
+    }
+}
+
+impl Downloader for TransmissionClient {
+    async fn create(
+        &self,
+        path_to_download: &str,
+        url: Vec<u8>,
+    ) -> Result<DownloadId, DownloaderError> {
+        todo!()
+    }
+
+    async fn get(
+        &self,
+        download_id: &DownloadId,
+    ) -> Result<Option<DownloadingEntry>, DownloaderError> {
+        todo!()
+    }
+
+    async fn delete(&self, download_id: &DownloadId) -> Result<(), DownloaderError> {
+        todo!()
     }
 }
