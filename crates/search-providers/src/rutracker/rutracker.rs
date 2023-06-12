@@ -1,8 +1,7 @@
-use crate::services::search_provider::rutracker::parser::{
+use crate::rutracker::parser::{
     parse_and_validate_auth_state, parse_search_results, parse_topic, AuthError, ParseError,
-    SearchResult, Topic,
 };
-use crate::types::TopicId;
+use crate::{SearchResult, SearchResults, Topic, TopicId};
 use reqwest::redirect::Policy;
 use reqwest::{Client, StatusCode};
 use serde::Serialize;
@@ -66,7 +65,7 @@ impl RuTrackerClient {
     pub(crate) async fn search_music(
         &self,
         query_str: &str,
-    ) -> Result<Vec<SearchResult>, RuTrackerClientError> {
+    ) -> Result<SearchResults, RuTrackerClientError> {
         #[derive(Serialize)]
         struct Query {
             nm: String,

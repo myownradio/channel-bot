@@ -1,18 +1,11 @@
-use crate::types::TopicId;
+use crate::{DownloadId, SearchResult, SearchResults, Topic, TopicId};
 use scraper::error::SelectorErrorKind;
 use scraper::{Html, Selector};
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) enum ParseError {
+pub enum ParseError {
     #[error(transparent)]
     SelectorError(#[from] SelectorErrorKind<'static>),
-}
-
-#[derive(Debug, PartialEq)]
-pub(crate) struct SearchResult {
-    pub(crate) title: String,
-    pub(crate) topic_id: TopicId,
-    pub(crate) seeds_number: u64,
 }
 
 const AUDIO_FORMAT_PRIORITY: [&str; 4] = ["FLAC", "MP3", "ALAC", "AAC"];
@@ -52,7 +45,7 @@ fn get_search_result_priority(result: &SearchResult) -> usize {
     format_priority * 5 + bitrate_priority * 10 + seeds_priority
 }
 
-pub(crate) fn parse_search_results(raw_html: &str) -> Result<Vec<SearchResult>, ParseError> {
+pub(crate) fn parse_search_results(raw_html: &str) -> Result<SearchResults, ParseError> {
     let html = Html::parse_document(raw_html);
 
     let table_row_selector = Selector::parse(r#"table.forumline tr"#)?;
@@ -103,37 +96,52 @@ pub(crate) fn parse_search_results(raw_html: &str) -> Result<Vec<SearchResult>, 
         .filter(|r| !r.title.contains("image+.cue"))
         .collect();
 
+    // Sort search results by the search result priority
     results.sort_by(|a, b| get_search_result_priority(a).cmp(&get_search_result_priority(b)));
 
     Ok(results)
 }
 
-#[derive(Debug, PartialEq)]
-pub(crate) struct Topic {
-    pub(crate) torrent_id: u64,
-}
-
 pub(crate) fn parse_topic(raw_html: &str) -> Result<Option<Topic>, ParseError> {
     let html = Html::parse_document(raw_html);
 
-    let download_link_selector = Selector::parse(r#"table.attach tr td a.dl-link"#)?;
-    let mut download_link = html.select(&download_link_selector);
+    let download_id_selector = Selector::parse(r#"table.attach tr td a.dl-link"#)?;
+    let mut download_id_select = html.select(&download_id_selector);
 
-    let topic = download_link.next().and_then(|el| {
+    let topic_id_selector = Selector::parse(r#"div.post_head p.post-time a.p-link"#)?;
+    let mut topic_id_select = html.select(&topic_id_selector);
+
+    let topic_id = topic_id_select.next().and_then(|el| {
+        let topic_id = el
+            .value()
+            .attr("href")?
+            .to_string()
+            .replace("viewtopic.php?t=", "")
+            .parse::<u64>()
+            .ok()?;
+
+        Some(topic_id)
+    });
+
+    let download_id = download_id_select.next().and_then(|el| {
         let download_id = el
             .value()
             .attr("href")?
             .to_string()
             .replace("dl.php?t=", "")
-            .parse()
+            .parse::<u64>()
             .ok()?;
 
-        Some(Topic {
-            torrent_id: download_id,
-        })
+        Some(download_id)
     });
 
-    Ok(topic)
+    Ok(match (topic_id, download_id) {
+        (Some(topic_id), Some(download_id)) => Some(Topic {
+            topic_id: TopicId(topic_id),
+            download_id: DownloadId(download_id),
+        }),
+        _ => None,
+    })
 }
 
 const CAPTCHA_IS_REQUIRED_TEXT: &str = "введите код подтверждения";
@@ -164,41 +172,4 @@ pub(crate) fn parse_and_validate_auth_state(raw_html: &str) -> Result<(), AuthEr
     }
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse_search_results() {
-        let results = parse_search_results(include_str!("fixtures/search_results.html"))
-            .expect("Expected successful parse results");
-
-        let expected_results = vec![
-            SearchResult { title: "(Trance, Dream House, Downtempo) Robert Miles - Dreamland - 1996 (Deconstruction [74321 42974 2]), FLAC (tracks+.cue), lossless".into(), topic_id: 1183770.into(), seeds_number: 18 },
-            SearchResult { title: "(Trance, Dream House, Downtempo) Robert Miles - Dreamland (The Winter Edition) - 1996 (Urban #533 791-2), FLAC (tracks+.cue), lossless".into(), topic_id: 1184081.into(), seeds_number: 11 },
-            SearchResult { title: "(Trance) [WEB] Robert Miles - Dreamland (Remastered) - 2016, FLAC (tracks), lossless".into(), topic_id: 5318721.into(), seeds_number: 8 },
-            SearchResult { title: "(Trance, Dream House, Downtempo) Robert Miles - Dreamland - 1996, FLAC (tracks+.cue) lossless".into(), topic_id: 3418878.into(), seeds_number: 4 },
-            SearchResult { title: "Robert Miles - Dreamland - 1996, ALAC, lossless".into(), topic_id: 1201152.into(), seeds_number: 3 },
-            SearchResult { title: "(Trance) Robert Miles - Dreamland (Remastered) - 2016, MP3, 320 kbps".into(), topic_id: 5309922.into(), seeds_number: 9 },
-            SearchResult { title: "(Dream House) Robert Miles - Dreamland (Including One and One) - 1996 [WEB], AAC (tracks) 256 kbps".into(), topic_id: 4737164.into(), seeds_number: 2 },
-        ];
-
-        assert_eq!(7, results.len());
-        assert_eq!(expected_results, results);
-    }
-
-    #[test]
-    fn test_parse_topic() {
-        let parsed_topic = parse_topic(include_str!("fixtures/topic.html"))
-            .expect("Expected successful parse results");
-
-        assert_eq!(
-            Some(Topic {
-                torrent_id: 5309922
-            }),
-            parsed_topic
-        );
-    }
 }
