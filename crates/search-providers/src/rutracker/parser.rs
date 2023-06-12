@@ -79,17 +79,29 @@ pub(crate) fn parse_search_results(raw_html: &str) -> Result<SearchResults, Pars
                 .parse::<u64>()
                 .ok()?
                 .into();
+            let download_id = columns[5]
+                .select(&href_selector)
+                .next()?
+                .value()
+                .attr("href")?
+                .to_string()
+                .replace("dl.php?t=", "")
+                .parse::<u64>()
+                .ok()?
+                .into();
             let seeds_number = columns[6]
                 .select(&seeds_selector)
                 .next()?
                 .inner_html()
                 .to_string()
-                .parse()
-                .ok()?;
+                .parse::<u64>()
+                .ok()?
+                .into();
 
             Some(SearchResult {
                 title,
                 topic_id,
+                download_id,
                 seeds_number,
             })
         })

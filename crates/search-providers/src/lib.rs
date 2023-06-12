@@ -9,6 +9,7 @@ pub use rutracker::*;
 pub struct SearchResult {
     pub title: String,
     pub topic_id: TopicId,
+    pub download_id: DownloadId,
     pub seeds_number: u64,
 }
 
@@ -45,6 +46,12 @@ impl std::fmt::Display for TopicId {
 
 #[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize, Deserialize)]
 pub struct DownloadId(pub(crate) u64);
+
+impl Into<DownloadId> for u64 {
+    fn into(self) -> DownloadId {
+        DownloadId(self)
+    }
+}
 
 impl Deref for DownloadId {
     type Target = u64;
