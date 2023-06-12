@@ -8,46 +8,53 @@ fn test_parsing_of_search_results() {
 
     let expected_results = vec![
         SearchResult {
+            #[rustfmt::skip]
             title: "(Trance, Dream House, Downtempo) Robert Miles - Dreamland - 1996 (Deconstruction [74321 42974 2]), FLAC (tracks+.cue), lossless".into(),
             topic_id: TopicId(1183770),
             download_id: DownloadId(1183770),
-            seeds_number: 18
+            seeds_number: 18,
         },
         SearchResult {
+            #[rustfmt::skip]
             title: "(Trance, Dream House, Downtempo) Robert Miles - Dreamland (The Winter Edition) - 1996 (Urban #533 791-2), FLAC (tracks+.cue), lossless".into(),
             topic_id: TopicId(1184081),
             download_id: DownloadId(1184081),
-            seeds_number: 11
+            seeds_number: 11,
         },
         SearchResult {
+            #[rustfmt::skip]
             title: "(Trance) [WEB] Robert Miles - Dreamland (Remastered) - 2016, FLAC (tracks), lossless".into(),
             topic_id: TopicId(5318721),
             download_id: DownloadId(5318721),
-            seeds_number: 8
+            seeds_number: 8,
         },
         SearchResult {
+            #[rustfmt::skip]
             title: "(Trance, Dream House, Downtempo) Robert Miles - Dreamland - 1996, FLAC (tracks+.cue) lossless".into(),
             topic_id: TopicId(3418878),
             download_id: DownloadId(3418878),
-            seeds_number: 4
+            seeds_number: 4,
         },
         SearchResult {
+            #[rustfmt::skip]
             title: "Robert Miles - Dreamland - 1996, ALAC, lossless".into(),
             topic_id: TopicId(1201152),
             download_id: DownloadId(1201152),
-            seeds_number: 3
+            seeds_number: 3,
         },
         SearchResult {
+            #[rustfmt::skip]
             title: "(Trance) Robert Miles - Dreamland (Remastered) - 2016, MP3, 320 kbps".into(),
             topic_id: TopicId(5309922),
             download_id: DownloadId(5309922),
-            seeds_number: 9
+            seeds_number: 9,
         },
         SearchResult {
+            #[rustfmt::skip]
             title: "(Dream House) Robert Miles - Dreamland (Including One and One) - 1996 [WEB], AAC (tracks) 256 kbps".into(),
             topic_id: TopicId(4737164),
             download_id: DownloadId(4737164),
-            seeds_number: 2
+            seeds_number: 2,
         },
     ];
 
