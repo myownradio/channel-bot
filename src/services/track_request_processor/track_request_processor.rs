@@ -1,7 +1,7 @@
 use crate::services::track_request_processor::traits::{
-    Downloader, DownloaderError, DownloadingStatus, MetadataService, MetadataServiceError,
-    RadioManager, RadioManagerError, SearchProvider, SearchProviderError, SearchResult,
-    StateStorage, StateStorageError,
+    DownloaderError, DownloadingStatus, MetadataService, MetadataServiceError, RadioManager,
+    RadioManagerError, SearchProvider, SearchProviderError, SearchResult, StateStorage,
+    StateStorageError, TorrentClient,
 };
 use crate::services::track_request_processor::types::{
     RequestId, TrackFetcherContext, TrackFetcherState, TrackFetcherStep,
@@ -35,7 +35,7 @@ pub(crate) enum ProceedNextStepError {
 pub(crate) struct TrackRequestProcessor {
     state_storage: Arc<dyn StateStorage>,
     search_provider: Arc<dyn SearchProvider>,
-    downloader: Arc<dyn Downloader>,
+    downloader: Arc<dyn TorrentClient>,
     metadata_service: Arc<dyn MetadataService>,
     radio_manager: Arc<dyn RadioManager>,
 }
@@ -44,7 +44,7 @@ impl TrackRequestProcessor {
     pub(crate) fn new(
         state_storage: Arc<dyn StateStorage>,
         search_provider: Arc<dyn SearchProvider>,
-        downloader: Arc<dyn Downloader>,
+        downloader: Arc<dyn TorrentClient>,
         metadata_service: Arc<dyn MetadataService>,
         radio_manager: Arc<dyn RadioManager>,
     ) -> Self {

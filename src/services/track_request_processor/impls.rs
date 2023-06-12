@@ -1,4 +1,3 @@
-use crate::services::search_provider::RuTrackerClient;
 use crate::services::storage::MemoryBasedStorage;
 use crate::services::track_request_processor::traits::{
     SearchProvider, SearchProviderError, SearchResult, StateStorage, StateStorageError,
@@ -7,9 +6,10 @@ use crate::services::track_request_processor::types::{
     RequestId, TrackFetcherContext, TrackFetcherState,
 };
 use crate::services::transmission::TransmissionClient;
-use crate::services::{Downloader, DownloaderError, DownloadingEntry};
+use crate::services::{DownloaderError, DownloadingEntry, TorrentClient};
 use crate::types::{DownloadId, TopicId, UserId};
 use async_trait::async_trait;
+use search_providers::RuTrackerClient;
 
 #[async_trait]
 impl StateStorage for MemoryBasedStorage {
@@ -136,6 +136,7 @@ impl SearchProvider for RuTrackerClient {
                     .map(|r| SearchResult {
                         title: r.title,
                         topic_id: r.topic_id,
+                        download_id: r.download_id,
                     })
                     .collect()
             })
@@ -158,7 +159,7 @@ impl SearchProvider for RuTrackerClient {
     }
 }
 
-impl Downloader for TransmissionClient {
+impl TorrentClient for TransmissionClient {
     async fn create(
         &self,
         path_to_download: &str,

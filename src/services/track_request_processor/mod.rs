@@ -11,9 +11,9 @@ mod tests {
     use super::track_request_processor::TrackRequestProcessor;
     use super::traits::StateStorage;
     use crate::services::track_request_processor::traits::{
-        Downloader, DownloaderError, DownloadingEntry, DownloadingStatus, MetadataService,
+        DownloaderError, DownloadingEntry, DownloadingStatus, MetadataService,
         MetadataServiceError, RadioManager, RadioManagerError, SearchProvider, SearchProviderError,
-        SearchResult, StateStorageError,
+        SearchResult, StateStorageError, TorrentClient,
     };
     use crate::services::track_request_processor::types::{
         RequestId, TrackFetcherContext, TrackFetcherState, TrackFetcherStep,
@@ -201,7 +201,7 @@ mod tests {
     struct DownloaderMock;
 
     #[async_trait]
-    impl Downloader for DownloaderMock {
+    impl TorrentClient for DownloaderMock {
         async fn create(
             &self,
             _path_to_download: &str,

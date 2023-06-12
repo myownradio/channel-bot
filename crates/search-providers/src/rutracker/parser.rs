@@ -161,7 +161,7 @@ const INCORRECT_PASSWORD_TEXT: &str = "неверный пароль";
 const SUCCESSFUL_LOGIN_TEXT: &str = "log-out-icon";
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) enum AuthError {
+pub enum AuthError {
     #[error("Captcha verification is required.")]
     CaptchaVerificationIsRequired,
     #[error("Incorrect login or password.")]

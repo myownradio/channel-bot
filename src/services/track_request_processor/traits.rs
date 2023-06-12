@@ -70,7 +70,8 @@ pub(crate) enum SearchProviderError {
 }
 
 pub(crate) struct SearchResult {
-    pub(crate) topic_id: TopicId,
+    pub(crate) topic_id: search_providers::TopicId,
+    pub(crate) download_id: search_providers::DownloadId,
     pub(crate) title: String,
 }
 
@@ -97,7 +98,7 @@ pub(crate) struct DownloadingEntry {
 }
 
 #[async_trait]
-pub(crate) trait Downloader {
+pub(crate) trait TorrentClient {
     async fn create(
         &self,
         path_to_download: &str,

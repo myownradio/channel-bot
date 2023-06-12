@@ -1,7 +1,7 @@
 use crate::rutracker::parser::{
     parse_and_validate_auth_state, parse_search_results, parse_topic, AuthError, ParseError,
 };
-use crate::{SearchResult, SearchResults, Topic, TopicId};
+use crate::{SearchResults, Topic, TopicId};
 use reqwest::redirect::Policy;
 use reqwest::{Client, StatusCode};
 use serde::Serialize;
@@ -10,7 +10,7 @@ const RU_TRACKER_HOST: &str = "https://rutracker.net";
 const MAGIC_LOGIN_WORD: &str = "вход";
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) enum RuTrackerClientError {
+pub enum RuTrackerClientError {
     #[error(transparent)]
     ReqwestError(#[from] reqwest::Error),
     #[error(transparent)]
@@ -21,15 +21,12 @@ pub(crate) enum RuTrackerClientError {
     BadStatus(StatusCode),
 }
 
-pub(crate) struct RuTrackerClient {
+pub struct RuTrackerClient {
     client: Client,
 }
 
 impl RuTrackerClient {
-    pub(crate) async fn create(
-        username: &str,
-        password: &str,
-    ) -> Result<Self, RuTrackerClientError> {
+    pub async fn create(username: &str, password: &str) -> Result<Self, RuTrackerClientError> {
         let client = Client::builder()
             .redirect(Policy::limited(10))
             .cookie_store(true)
@@ -62,7 +59,7 @@ impl RuTrackerClient {
         Ok(Self { client })
     }
 
-    pub(crate) async fn search_music(
+    pub async fn search_music(
         &self,
         query_str: &str,
     ) -> Result<SearchResults, RuTrackerClientError> {
@@ -89,7 +86,7 @@ impl RuTrackerClient {
         Ok(parse_search_results(&raw_html)?)
     }
 
-    pub(crate) async fn get_topic(
+    pub async fn get_topic(
         &self,
         topic_id: &TopicId,
     ) -> Result<Option<Topic>, RuTrackerClientError> {
@@ -109,10 +106,7 @@ impl RuTrackerClient {
         Ok(parse_topic(&raw_html)?)
     }
 
-    pub(crate) async fn download_torrent(
-        &self,
-        torrent_id: u64,
-    ) -> Result<Vec<u8>, RuTrackerClientError> {
+    pub async fn download_torrent(&self, torrent_id: u64) -> Result<Vec<u8>, RuTrackerClientError> {
         let response = self
             .client
             .get(format!("{}/forum/dl.php?t={}", RU_TRACKER_HOST, torrent_id))
@@ -129,6 +123,3 @@ impl RuTrackerClient {
         Ok(response.bytes().await?.to_vec())
     }
 }
-
-#[cfg(test)]
-mod tests {}
