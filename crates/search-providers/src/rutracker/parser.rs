@@ -1,17 +1,15 @@
-use crate::{DownloadId, SearchResult, SearchResults, Topic, TopicId};
+use crate::{DownloadId, TopicId};
 use scraper::error::SelectorErrorKind;
 use scraper::{Html, Selector};
-
-#[derive(Debug, thiserror::Error)]
-pub enum ParseError {
-    #[error(transparent)]
-    SelectorError(#[from] SelectorErrorKind<'static>),
-}
 
 const AUDIO_FORMAT_PRIORITY: [&str; 4] = ["FLAC", "MP3", "ALAC", "AAC"];
 const AUDIO_BITRATE_PRIORITY: [&str; 3] = ["lossless", "320 kbps", "256 kbps"];
 
-fn get_search_result_priority(result: &SearchResult) -> usize {
+const CAPTCHA_IS_REQUIRED_TEXT: &str = "введите код подтверждения";
+const INCORRECT_PASSWORD_TEXT: &str = "неверный пароль";
+const SUCCESSFUL_LOGIN_TEXT: &str = "log-out-icon";
+
+fn get_search_result_priority(result: &TopicData) -> usize {
     let format_priority = AUDIO_FORMAT_PRIORITY
         .iter()
         .enumerate()
@@ -45,7 +43,21 @@ fn get_search_result_priority(result: &SearchResult) -> usize {
     format_priority * 5 + bitrate_priority * 10 + seeds_priority
 }
 
-pub(crate) fn parse_search_results(raw_html: &str) -> Result<SearchResults, ParseError> {
+#[derive(Debug, thiserror::Error)]
+pub enum ParseError {
+    #[error(transparent)]
+    SelectorError(#[from] SelectorErrorKind<'static>),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct TopicData {
+    pub title: String,
+    pub topic_id: TopicId,
+    pub download_id: DownloadId,
+    pub seeds_number: u64,
+}
+
+pub(crate) fn parse_search_results(raw_html: &str) -> Result<Vec<TopicData>, ParseError> {
     let html = Html::parse_document(raw_html);
 
     let table_row_selector = Selector::parse(r#"table.forumline tr"#)?;
@@ -98,7 +110,7 @@ pub(crate) fn parse_search_results(raw_html: &str) -> Result<SearchResults, Pars
                 .ok()?
                 .into();
 
-            Some(SearchResult {
+            Some(TopicData {
                 title,
                 topic_id,
                 download_id,
@@ -113,52 +125,6 @@ pub(crate) fn parse_search_results(raw_html: &str) -> Result<SearchResults, Pars
 
     Ok(results)
 }
-
-pub(crate) fn parse_topic(raw_html: &str) -> Result<Option<Topic>, ParseError> {
-    let html = Html::parse_document(raw_html);
-
-    let download_id_selector = Selector::parse(r#"table.attach tr td a.dl-link"#)?;
-    let mut download_id_select = html.select(&download_id_selector);
-
-    let topic_id_selector = Selector::parse(r#"div.post_head p.post-time a.p-link"#)?;
-    let mut topic_id_select = html.select(&topic_id_selector);
-
-    let topic_id = topic_id_select.next().and_then(|el| {
-        let topic_id = el
-            .value()
-            .attr("href")?
-            .to_string()
-            .replace("viewtopic.php?t=", "")
-            .parse::<u64>()
-            .ok()?;
-
-        Some(topic_id)
-    });
-
-    let download_id = download_id_select.next().and_then(|el| {
-        let download_id = el
-            .value()
-            .attr("href")?
-            .to_string()
-            .replace("dl.php?t=", "")
-            .parse::<u64>()
-            .ok()?;
-
-        Some(download_id)
-    });
-
-    Ok(match (topic_id, download_id) {
-        (Some(topic_id), Some(download_id)) => Some(Topic {
-            topic_id: TopicId(topic_id),
-            download_id: DownloadId(download_id),
-        }),
-        _ => None,
-    })
-}
-
-const CAPTCHA_IS_REQUIRED_TEXT: &str = "введите код подтверждения";
-const INCORRECT_PASSWORD_TEXT: &str = "неверный пароль";
-const SUCCESSFUL_LOGIN_TEXT: &str = "log-out-icon";
 
 #[derive(Debug, thiserror::Error)]
 pub enum AuthError {

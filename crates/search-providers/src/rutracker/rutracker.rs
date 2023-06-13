@@ -1,7 +1,7 @@
 use crate::rutracker::parser::{
-    parse_and_validate_auth_state, parse_search_results, parse_topic, AuthError, ParseError,
+    parse_and_validate_auth_state, parse_search_results, AuthError, ParseError,
 };
-use crate::{SearchResults, Topic, TopicId};
+use crate::TopicData;
 use reqwest::redirect::Policy;
 use reqwest::{Client, StatusCode};
 use serde::Serialize;
@@ -62,7 +62,7 @@ impl RuTrackerClient {
     pub async fn search_music(
         &self,
         query_str: &str,
-    ) -> Result<SearchResults, RuTrackerClientError> {
+    ) -> Result<Vec<TopicData>, RuTrackerClientError> {
         #[derive(Serialize)]
         struct Query {
             nm: String,
@@ -84,26 +84,6 @@ impl RuTrackerClient {
         parse_and_validate_auth_state(&raw_html)?;
 
         Ok(parse_search_results(&raw_html)?)
-    }
-
-    pub async fn get_topic(
-        &self,
-        topic_id: &TopicId,
-    ) -> Result<Option<Topic>, RuTrackerClientError> {
-        let response = self
-            .client
-            .get(format!(
-                "{}/forum/viewtopic.php?t={}",
-                RU_TRACKER_HOST, topic_id
-            ))
-            .send()
-            .await?;
-
-        let raw_html = response.text().await?;
-
-        parse_and_validate_auth_state(&raw_html)?;
-
-        Ok(parse_topic(&raw_html)?)
     }
 
     pub async fn download_torrent(&self, torrent_id: u64) -> Result<Vec<u8>, RuTrackerClientError> {
