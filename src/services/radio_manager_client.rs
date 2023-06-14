@@ -1,6 +1,6 @@
 use crate::services::track_request_processor::{
-    RadioManagerChannelId, RadioManagerClient as RadioManagerClientTrait, RadioManagerClientError,
-    RadioManagerLinkId, RadioManagerTrackId, UserId,
+    RadioManagerChannelId, RadioManagerClientError, RadioManagerClientTrait, RadioManagerLinkId,
+    RadioManagerTrackId, UserId,
 };
 use async_trait::async_trait;
 

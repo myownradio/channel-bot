@@ -16,7 +16,7 @@ impl std::fmt::Display for StateStorageError {
 }
 
 #[async_trait]
-pub trait StateStorage: Sync {
+pub trait StateStorageTrait: Sync {
     async fn create_state(
         &self,
         user_id: &UserId,
@@ -67,7 +67,7 @@ impl std::fmt::Display for SearchProviderError {
 }
 
 #[async_trait]
-pub trait SearchProvider: Sync {
+pub trait SearchProviderTrait: Sync {
     async fn search_music(&self, query: &str) -> Result<Vec<TopicData>, SearchProviderError>;
     async fn download_torrent(
         &self,
@@ -85,7 +85,7 @@ impl std::fmt::Display for TorrentClientError {
 }
 
 #[async_trait]
-pub trait TorrentClient: Sync {
+pub trait TorrentClientTrait: Sync {
     async fn create(
         &self,
         path_to_download: &str,
@@ -105,7 +105,7 @@ impl std::fmt::Display for MetadataServiceError {
 }
 
 #[async_trait]
-pub trait MetadataService: Sync {
+pub trait MetadataServiceTrait: Sync {
     async fn get_audio_metadata(
         &self,
         file_path: &str,
@@ -122,7 +122,7 @@ impl std::fmt::Display for RadioManagerClientError {
 }
 
 #[async_trait]
-pub trait RadioManagerClient: Sync {
+pub trait RadioManagerClientTrait: Sync {
     async fn upload_audio_track(
         &self,
         user_id: &UserId,

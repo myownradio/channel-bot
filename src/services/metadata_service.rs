@@ -7,7 +7,7 @@ use tracing::error;
 pub(crate) struct MetadataService;
 
 #[async_trait]
-impl track_request_processor::MetadataService for MetadataService {
+impl track_request_processor::MetadataServiceTrait for MetadataService {
     async fn get_audio_metadata(
         &self,
         file_path: &str,

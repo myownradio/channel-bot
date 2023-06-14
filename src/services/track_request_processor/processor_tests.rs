@@ -1,7 +1,7 @@
 use super::traits::{
-    MetadataService, MetadataServiceError, RadioManagerClient, RadioManagerClientError,
-    SearchProvider, SearchProviderError, StateStorage, StateStorageError, TorrentClient,
-    TorrentClientError,
+    MetadataServiceError, MetadataServiceTrait, RadioManagerClientError, RadioManagerClientTrait,
+    SearchProviderError, SearchProviderTrait, StateStorageError, StateStorageTrait,
+    TorrentClientError, TorrentClientTrait,
 };
 use super::types::{
     AudioMetadata, DownloadId, RadioManagerChannelId, RadioManagerLinkId, RadioManagerTrackId,
@@ -32,7 +32,7 @@ impl StateStorageMock {
 }
 
 #[async_trait]
-impl StateStorage for StateStorageMock {
+impl StateStorageTrait for StateStorageMock {
     async fn create_state(
         &self,
         user_id: &UserId,
@@ -168,7 +168,7 @@ impl StateStorage for StateStorageMock {
 struct SearchProviderMock;
 
 #[async_trait]
-impl SearchProvider for SearchProviderMock {
+impl SearchProviderTrait for SearchProviderMock {
     async fn search_music(&self, query: &str) -> Result<Vec<TopicData>, SearchProviderError> {
         match query {
             "Robert Miles - Children" => Ok(vec![
@@ -203,7 +203,7 @@ impl SearchProvider for SearchProviderMock {
 struct TorrentClientMock;
 
 #[async_trait]
-impl TorrentClient for TorrentClientMock {
+impl TorrentClientTrait for TorrentClientMock {
     async fn create(
         &self,
         _path_to_download: &str,
@@ -233,7 +233,7 @@ impl TorrentClient for TorrentClientMock {
 struct MetadataServiceMock;
 
 #[async_trait]
-impl MetadataService for MetadataServiceMock {
+impl MetadataServiceTrait for MetadataServiceMock {
     async fn get_audio_metadata(
         &self,
         file_path: &str,
@@ -257,7 +257,7 @@ impl MetadataService for MetadataServiceMock {
 struct RadioManagerMock;
 
 #[async_trait]
-impl RadioManagerClient for RadioManagerMock {
+impl RadioManagerClientTrait for RadioManagerMock {
     async fn upload_audio_track(
         &self,
         _user_id: &UserId,
@@ -286,7 +286,7 @@ async fn test_create_track_request() {
     let state_storage = Arc::new(StateStorageMock::new());
 
     let processor = TrackRequestProcessor::new(
-        Arc::clone(&state_storage) as Arc<dyn StateStorage>,
+        Arc::clone(&state_storage) as Arc<dyn StateStorageTrait>,
         Arc::new(SearchProviderMock),
         Arc::new(TorrentClientMock),
         Arc::new(MetadataServiceMock),
@@ -328,7 +328,7 @@ async fn test_processing_track_request() {
     let state_storage = Arc::new(StateStorageMock::new());
 
     let processor = TrackRequestProcessor::new(
-        Arc::clone(&state_storage) as Arc<dyn StateStorage>,
+        Arc::clone(&state_storage) as Arc<dyn StateStorageTrait>,
         Arc::new(SearchProviderMock),
         Arc::new(TorrentClientMock),
         Arc::new(MetadataServiceMock),

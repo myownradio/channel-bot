@@ -1,5 +1,5 @@
 use crate::services::track_request_processor::{
-    Torrent, TorrentClient, TorrentClientError, TorrentId,
+    Torrent, TorrentClientError, TorrentClientTrait, TorrentId,
 };
 use async_lock::Mutex;
 use async_trait::async_trait;
@@ -131,7 +131,7 @@ impl TransmissionClient {
 }
 
 #[async_trait]
-impl TorrentClient for TransmissionClient {
+impl TorrentClientTrait for TransmissionClient {
     async fn create(
         &self,
         path_to_download: &str,

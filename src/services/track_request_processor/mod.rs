@@ -97,20 +97,20 @@ pub enum ProcessRequestError {
 }
 
 pub struct TrackRequestProcessor {
-    state_storage: Arc<dyn StateStorage + Send>,
-    search_provider: Arc<dyn SearchProvider + Send>,
-    torrent_client: Arc<dyn TorrentClient + Send>,
-    metadata_service: Arc<dyn MetadataService + Send>,
-    radio_manager_client: Arc<dyn RadioManagerClient + Send>,
+    state_storage: Arc<dyn StateStorageTrait + Send>,
+    search_provider: Arc<dyn SearchProviderTrait + Send>,
+    torrent_client: Arc<dyn TorrentClientTrait + Send>,
+    metadata_service: Arc<dyn MetadataServiceTrait + Send>,
+    radio_manager_client: Arc<dyn RadioManagerClientTrait + Send>,
 }
 
 impl TrackRequestProcessor {
     pub fn new(
-        state_storage: Arc<dyn StateStorage + Send>,
-        search_provider: Arc<dyn SearchProvider + Send>,
-        torrent_client: Arc<dyn TorrentClient + Send>,
-        metadata_service: Arc<dyn MetadataService + Send>,
-        radio_manager_client: Arc<dyn RadioManagerClient + Send>,
+        state_storage: Arc<dyn StateStorageTrait + Send>,
+        search_provider: Arc<dyn SearchProviderTrait + Send>,
+        torrent_client: Arc<dyn TorrentClientTrait + Send>,
+        metadata_service: Arc<dyn MetadataServiceTrait + Send>,
+        radio_manager_client: Arc<dyn RadioManagerClientTrait + Send>,
     ) -> Self {
         Self {
             state_storage,

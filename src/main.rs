@@ -46,15 +46,15 @@ async fn main() -> std::io::Result<()> {
 
     let track_request_processor = Arc::new(TrackRequestProcessor::new(
         Arc::clone(&state_storage)
-            as Arc<dyn track_request_processor::StateStorage + Send + 'static>,
+            as Arc<dyn track_request_processor::StateStorageTrait + Send + 'static>,
         Arc::clone(&rutracker_client)
-            as Arc<dyn track_request_processor::SearchProvider + Send + 'static>,
+            as Arc<dyn track_request_processor::SearchProviderTrait + Send + 'static>,
         Arc::clone(&transmission_client)
-            as Arc<dyn track_request_processor::TorrentClient + Send + 'static>,
+            as Arc<dyn track_request_processor::TorrentClientTrait + Send + 'static>,
         Arc::clone(&metadata_service)
-            as Arc<dyn track_request_processor::MetadataService + Send + 'static>,
+            as Arc<dyn track_request_processor::MetadataServiceTrait + Send + 'static>,
         Arc::clone(&radio_manager_client)
-            as Arc<dyn track_request_processor::RadioManagerClient + Send + 'static>,
+            as Arc<dyn track_request_processor::RadioManagerClientTrait + Send + 'static>,
     ));
 
     let shutdown_timeout = config.shutdown_timeout.clone();

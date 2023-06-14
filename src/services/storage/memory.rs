@@ -1,5 +1,5 @@
 use crate::services::track_request_processor::{
-    RequestId, StateStorage, StateStorageError, TrackRequestProcessingContext,
+    RequestId, StateStorageError, StateStorageTrait, TrackRequestProcessingContext,
     TrackRequestProcessingState, UserId,
 };
 use async_trait::async_trait;
@@ -55,7 +55,7 @@ impl MemoryBasedStorage {
 }
 
 #[async_trait]
-impl StateStorage for MemoryBasedStorage {
+impl StateStorageTrait for MemoryBasedStorage {
     async fn create_state(
         &self,
         user_id: &UserId,
