@@ -11,7 +11,7 @@ use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub(crate) struct TrackRequestProcessingContext {
+pub struct TrackRequestProcessingContext {
     pub(crate) track_title: String,
     pub(crate) track_artist: String,
     pub(crate) track_album: String,
@@ -35,7 +35,7 @@ impl TrackRequestProcessingContext {
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
-pub(crate) struct TrackRequestProcessingState {
+pub struct TrackRequestProcessingState {
     pub(crate) tried_topics: Vec<TopicId>,
     pub(crate) current_download_id: Option<DownloadId>,
     pub(crate) current_torrent_data: Option<Vec<u8>>,
@@ -66,7 +66,7 @@ impl TrackRequestProcessingState {
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum TrackRequestProcessingStep {
+pub enum TrackRequestProcessingStep {
     SearchAudioAlbum,
     GetAlbumURL,
     DownloadAlbum,
@@ -77,13 +77,13 @@ pub(crate) enum TrackRequestProcessingStep {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) enum CreatingJobError {
+pub enum CreatingJobError {
     #[error(transparent)]
     StateStorageError(#[from] traits::StateStorageError),
 }
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) enum ProcessingRequestError {
+pub enum ProcessingRequestError {
     #[error(transparent)]
     StateStorageError(#[from] traits::StateStorageError),
     #[error(transparent)]
@@ -96,7 +96,7 @@ pub(crate) enum ProcessingRequestError {
     RadioManagerError(#[from] traits::RadioManagerClientError),
 }
 
-pub(crate) struct TrackRequestProcessor {
+pub struct TrackRequestProcessor {
     state_storage: Arc<dyn StateStorage>,
     search_provider: Arc<dyn SearchProvider>,
     torrent_client: Arc<dyn TorrentClient>,
@@ -105,7 +105,7 @@ pub(crate) struct TrackRequestProcessor {
 }
 
 impl TrackRequestProcessor {
-    pub(crate) fn new(
+    pub fn new(
         state_storage: Arc<dyn StateStorage>,
         search_provider: Arc<dyn SearchProvider>,
         torrent_client: Arc<dyn TorrentClient>,
@@ -121,7 +121,7 @@ impl TrackRequestProcessor {
         }
     }
 
-    pub(crate) async fn create_request(
+    pub async fn create_request(
         &self,
         user_id: &UserId,
         track_metadata: &AudioMetadata,
@@ -148,7 +148,7 @@ impl TrackRequestProcessor {
         Ok(request_id)
     }
 
-    pub(crate) async fn process_request(
+    pub async fn process_request(
         &self,
         user_id: &UserId,
         request_id: &RequestId,

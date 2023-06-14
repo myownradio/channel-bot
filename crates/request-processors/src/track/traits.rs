@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use std::fmt::Formatter;
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) struct StateStorageError(pub(crate) Box<dyn std::error::Error>);
+pub struct StateStorageError(pub(crate) Box<dyn std::error::Error>);
 
 impl std::fmt::Display for StateStorageError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -16,7 +16,7 @@ impl std::fmt::Display for StateStorageError {
 }
 
 #[async_trait]
-pub(crate) trait StateStorage {
+pub trait StateStorage {
     async fn create_state(
         &self,
         user_id: &UserId,
@@ -58,7 +58,7 @@ pub(crate) trait StateStorage {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) struct SearchProviderError(pub(crate) Box<dyn std::error::Error>);
+pub struct SearchProviderError(pub(crate) Box<dyn std::error::Error>);
 
 impl std::fmt::Display for SearchProviderError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -67,7 +67,7 @@ impl std::fmt::Display for SearchProviderError {
 }
 
 #[async_trait]
-pub(crate) trait SearchProvider {
+pub trait SearchProvider {
     async fn search_music(&self, query: &str) -> Result<Vec<TopicData>, SearchProviderError>;
     async fn download_torrent(
         &self,
@@ -76,7 +76,7 @@ pub(crate) trait SearchProvider {
 }
 #[derive(Debug, thiserror::Error)]
 
-pub(crate) struct TorrentClientError(pub(crate) Box<dyn std::error::Error>);
+pub struct TorrentClientError(pub(crate) Box<dyn std::error::Error>);
 
 impl std::fmt::Display for TorrentClientError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -85,7 +85,7 @@ impl std::fmt::Display for TorrentClientError {
 }
 
 #[async_trait]
-pub(crate) trait TorrentClient {
+pub trait TorrentClient {
     async fn create(
         &self,
         path_to_download: &str,
@@ -96,7 +96,7 @@ pub(crate) trait TorrentClient {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) struct MetadataServiceError(pub(crate) Box<dyn std::error::Error>);
+pub struct MetadataServiceError(pub(crate) Box<dyn std::error::Error>);
 
 impl std::fmt::Display for MetadataServiceError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -105,7 +105,7 @@ impl std::fmt::Display for MetadataServiceError {
 }
 
 #[async_trait]
-pub(crate) trait MetadataService {
+pub trait MetadataService {
     async fn get_audio_metadata(
         &self,
         file_path: &str,
@@ -113,7 +113,7 @@ pub(crate) trait MetadataService {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) struct RadioManagerClientError(pub(crate) Box<dyn std::error::Error>);
+pub struct RadioManagerClientError(pub(crate) Box<dyn std::error::Error>);
 
 impl std::fmt::Display for RadioManagerClientError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -122,7 +122,7 @@ impl std::fmt::Display for RadioManagerClientError {
 }
 
 #[async_trait]
-pub(crate) trait RadioManagerClient {
+pub trait RadioManagerClient {
     async fn upload_audio_track(
         &self,
         user_id: &UserId,
