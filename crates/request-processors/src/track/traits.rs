@@ -1,14 +1,13 @@
-use crate::track_proc::types::TopicData;
-use crate::track_proc::{
-    AudioMetadata, RadioManagerChannelId, RadioManagerLinkId, RadioManagerTrackId, RequestId,
-    Torrent, TrackRequestProcessingContext, TrackRequestProcessingState,
+use crate::track::{
+    AudioMetadata, DownloadId, RadioManagerChannelId, RadioManagerLinkId, RadioManagerTrackId,
+    RequestId, TopicData, TopicId, Torrent, TorrentId, TrackRequestProcessingContext,
+    TrackRequestProcessingState, UserId,
 };
-use crate::{DownloadId, TopicId, TorrentId, UserId};
 use async_trait::async_trait;
 use std::fmt::Formatter;
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) struct StateStorageError(Box<dyn std::error::Error>);
+pub(crate) struct StateStorageError(pub(crate) Box<dyn std::error::Error>);
 
 impl std::fmt::Display for StateStorageError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -59,7 +58,7 @@ pub(crate) trait StateStorage {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) struct SearchProviderError(Box<dyn std::error::Error>);
+pub(crate) struct SearchProviderError(pub(crate) Box<dyn std::error::Error>);
 
 impl std::fmt::Display for SearchProviderError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -77,7 +76,7 @@ pub(crate) trait SearchProvider {
 }
 #[derive(Debug, thiserror::Error)]
 
-pub(crate) struct TorrentClientError(Box<dyn std::error::Error>);
+pub(crate) struct TorrentClientError(pub(crate) Box<dyn std::error::Error>);
 
 impl std::fmt::Display for TorrentClientError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -97,7 +96,7 @@ pub(crate) trait TorrentClient {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) struct MetadataServiceError(Box<dyn std::error::Error>);
+pub(crate) struct MetadataServiceError(pub(crate) Box<dyn std::error::Error>);
 
 impl std::fmt::Display for MetadataServiceError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -114,7 +113,7 @@ pub(crate) trait MetadataService {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) struct RadioManagerClientError(Box<dyn std::error::Error>);
+pub(crate) struct RadioManagerClientError(pub(crate) Box<dyn std::error::Error>);
 
 impl std::fmt::Display for RadioManagerClientError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

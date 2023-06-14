@@ -1,4 +1,4 @@
-use crate::track_proc::{traits, TorrentStatus};
+use crate::track::{traits, TorrentStatus};
 use crate::{
     AudioMetadata, DownloadId, MetadataService, RadioManagerChannelId, RadioManagerClient,
     RadioManagerLinkId, RadioManagerTrackId, RequestId, SearchProvider, StateStorage, TopicData,
@@ -121,7 +121,7 @@ impl TrackRequestProcessor {
         }
     }
 
-    pub(crate) async fn process_request(
+    pub(crate) async fn create_request(
         &self,
         user_id: &UserId,
         track_metadata: &AudioMetadata,
@@ -148,7 +148,7 @@ impl TrackRequestProcessor {
         Ok(request_id)
     }
 
-    pub(crate) async fn handle_request(
+    pub(crate) async fn process_request(
         &self,
         user_id: &UserId,
         request_id: &RequestId,

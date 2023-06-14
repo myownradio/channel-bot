@@ -1,8 +1,7 @@
-use crate::track_proc::{
-    RadioManagerLinkId, RadioManagerTrackId, TrackRequestProcessingState,
+use crate::{
+    DownloadId, RadioManagerLinkId, RadioManagerTrackId, TorrentId, TrackRequestProcessingState,
     TrackRequestProcessingStep,
 };
-use crate::{DownloadId, TorrentId};
 
 #[test]
 fn should_return_search_audio_album_by_default() {
