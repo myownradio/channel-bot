@@ -54,9 +54,9 @@ impl std::fmt::Display for RadioManagerLinkId {
 
 #[derive(Clone, PartialEq, Debug, Default)]
 pub struct AudioMetadata {
-    pub(crate) title: String,
-    pub(crate) artist: String,
-    pub(crate) album: String,
+    pub title: String,
+    pub artist: String,
+    pub album: String,
 }
 
 #[derive(Clone, PartialEq, Debug)]

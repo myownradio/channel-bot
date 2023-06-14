@@ -1,6 +1,11 @@
-mod playlist_processor;
-mod third_parties;
-mod track_request_processor;
+mod metadata_service;
+pub(crate) use metadata_service::*;
 
-pub(crate) use third_parties::*;
-pub(crate) use track_request_processor::*;
+mod storage;
+pub(crate) use storage::*;
+
+mod transmission_client;
+pub(crate) use transmission_client::*;
+
+mod radio_manager_client;
+pub(crate) use radio_manager_client::*;

@@ -318,7 +318,7 @@ impl PlaylistProcessor {
                         return Ok(());
                     }
 
-                    debug!("Searching for the track in finished download...");
+                    debug!("Searching for the track_proc in finished download...");
 
                     for file_path in download.files {
                         let maybe_metadata =
@@ -334,7 +334,9 @@ impl PlaylistProcessor {
                         }
                     }
 
-                    info!("The current download appears to be missing the required audio track");
+                    info!(
+                        "The current download appears to be missing the required audio track_proc"
+                    );
 
                     track_ctx.current_download_id.take();
                 }

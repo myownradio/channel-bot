@@ -1,4 +1,6 @@
 use async_lock::Mutex;
+use base64::{engine::general_purpose::STANDARD, Engine};
+use request_processors::{Torrent, TorrentClientError};
 use std::ops::Deref;
 use transmission_rpc::types::{
     BasicAuth, Id, RpcResponse, TorrentAddArgs, TorrentAddedOrDuplicate,
@@ -39,11 +41,12 @@ impl TransmissionClient {
         password: Option<String>,
         download_dir: String,
     ) -> Self {
+        let url = (&url).parse().unwrap();
         let client = match (username, password) {
             (Some(user), Some(password)) => {
-                TransClient::with_auth(&url, BasicAuth { user, password })
+                TransClient::with_auth(url, BasicAuth { user, password })
             }
-            _ => TransClient::new(&url),
+            _ => TransClient::new(url),
         };
 
         Self {
@@ -56,7 +59,7 @@ impl TransmissionClient {
         &self,
         torrent_file_content: Vec<u8>,
     ) -> TransmissionClientResult<TorrentId> {
-        let metainfo = base64::encode(torrent_file_content);
+        let metainfo = STANDARD.encode(torrent_file_content);
 
         let RpcResponse { arguments, result } = self
             .client
@@ -131,5 +134,29 @@ impl TransmissionClient {
         }
 
         Ok(())
+    }
+}
+
+impl request_processors::TorrentClient for TransmissionClient {
+    async fn create(
+        &self,
+        path_to_download: &str,
+        torrent_file_data: Vec<u8>,
+    ) -> Result<request_processors::TorrentId, TorrentClientError> {
+        todo!()
+    }
+
+    async fn get(
+        &self,
+        torrent_id: &request_processors::TorrentId,
+    ) -> Result<Torrent, TorrentClientError> {
+        todo!()
+    }
+
+    async fn delete(
+        &self,
+        torrent_id: &request_processors::TorrentId,
+    ) -> Result<(), TorrentClientError> {
+        todo!()
     }
 }

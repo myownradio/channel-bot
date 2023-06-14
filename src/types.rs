@@ -2,46 +2,23 @@ use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 
 #[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
-pub(crate) struct DownloadId(String);
+pub(crate) struct TorrentId(i64);
 
-impl Into<DownloadId> for &str {
-    fn into(self) -> DownloadId {
-        DownloadId(self.to_string())
+impl Into<TorrentId> for &str {
+    fn into(self) -> TorrentId {
+        TorrentId(self.)
     }
 }
 
-impl Deref for DownloadId {
-    type Target = String;
+impl Deref for TorrentId {
+    type Target = i64;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl std::fmt::Display for DownloadId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-#[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize, Deserialize)]
-pub(crate) struct TopicId(u64);
-
-impl Into<TopicId> for u64 {
-    fn into(self) -> TopicId {
-        TopicId(self)
-    }
-}
-
-impl Deref for TopicId {
-    type Target = u64;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl std::fmt::Display for TopicId {
+impl std::fmt::Display for TorrentId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }

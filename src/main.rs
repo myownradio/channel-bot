@@ -1,7 +1,7 @@
 use crate::config::Config;
-use crate::services::storage::MemoryBasedStorage;
-use crate::services::transmission::TransmissionClient;
-use crate::services::{SearchProvider, StateStorage, TorrentClient, TrackRequestProcessor};
+use crate::services::{
+    MemoryBasedStorage, MetadataService, RadioManagerClient, TransmissionClient,
+};
 use actix_rt::signal::unix;
 use actix_web::web::Data;
 use actix_web::{App, HttpServer};
@@ -38,16 +38,15 @@ async fn main() -> std::io::Result<()> {
         config.transmission.password.clone(),
         config.transmission.download_directory.clone(),
     ));
+    let metadata_service = Arc::new(MetadataService);
+    let radio_manager_client = Arc::new(RadioManagerClient::create(&config.radiomanager.endpoint));
 
-    let metadata_service = Arc::new(todo!());
-    let radio_manager_client = Arc::new(todo!());
-
-    let track_request_processor = TrackRequestProcessor::new(
-        Arc::clone(&state_storage) as Arc<dyn StateStorage>,
-        Arc::clone(&rutracker_client) as Arc<dyn SearchProvider>,
-        Arc::clone(&transmission_client) as Arc<dyn TorrentClient>,
-        Arc::clone(&metadata_service),
-        Arc::clone(&radio_manager_client),
+    let track_request_processor = request_processors::TrackRequestProcessor::new(
+        Arc::clone(&state_storage) as Arc<dyn request_processors::StateStorage>,
+        Arc::clone(&rutracker_client) as Arc<dyn request_processors::SearchProvider>,
+        Arc::clone(&transmission_client) as Arc<dyn request_processors::TorrentClient>,
+        Arc::clone(&metadata_service) as Arc<dyn request_processors::MetadataService>,
+        Arc::clone(&radio_manager_client) as Arc<dyn request_processors::RadioManagerClient>,
     );
 
     let shutdown_timeout = config.shutdown_timeout.clone();

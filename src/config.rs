@@ -29,6 +29,12 @@ pub(crate) struct TransmissionConfig {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+pub(crate) struct RadioManagerConfig {
+    #[serde(rename = "radiomanager_endpoint")]
+    pub(crate) endpoint: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 pub(crate) struct Config {
     #[serde(default = "default_bind_address")]
     pub(crate) bind_address: String,
@@ -38,6 +44,8 @@ pub(crate) struct Config {
     pub(crate) rutracker: RuTrackerCredentials,
     #[serde(flatten)]
     pub(crate) transmission: TransmissionConfig,
+    #[serde(flatten)]
+    pub(crate) radiomanager: RadioManagerConfig,
 }
 
 impl Config {
