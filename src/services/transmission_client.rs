@@ -1,4 +1,5 @@
 use async_lock::Mutex;
+use async_trait::async_trait;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use request_processors::{Torrent, TorrentClientError};
 use std::ops::Deref;
@@ -137,6 +138,7 @@ impl TransmissionClient {
     }
 }
 
+#[async_trait]
 impl request_processors::TorrentClient for TransmissionClient {
     async fn create(
         &self,

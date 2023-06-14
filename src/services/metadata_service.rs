@@ -1,9 +1,11 @@
+use async_trait::async_trait;
 use audiotags::Tag;
 use request_processors::{AudioMetadata, MetadataServiceError};
 use tracing::error;
 
 pub(crate) struct MetadataService;
 
+#[async_trait]
 impl request_processors::MetadataService for MetadataService {
     async fn get_audio_metadata(
         &self,
@@ -13,7 +15,7 @@ impl request_processors::MetadataService for MetadataService {
             Ok(tags) => Ok(Some(AudioMetadata {
                 title: tags.title().unwrap_or_default().to_string(),
                 artist: tags.artist().unwrap_or_default().to_string(),
-                album: tags.album().unwrap_or_default().to_string(),
+                album: tags.album_title().unwrap_or_default().to_string(),
             })),
             Err(error) => {
                 error!(?error, file_path, "Unable to read audio file metadata");

@@ -97,20 +97,20 @@ pub enum ProcessingRequestError {
 }
 
 pub struct TrackRequestProcessor {
-    state_storage: Arc<dyn StateStorage>,
-    search_provider: Arc<dyn SearchProvider>,
-    torrent_client: Arc<dyn TorrentClient>,
-    metadata_service: Arc<dyn MetadataService>,
-    radio_manager_client: Arc<dyn RadioManagerClient>,
+    state_storage: Arc<dyn StateStorage + Send>,
+    search_provider: Arc<dyn SearchProvider + Send>,
+    torrent_client: Arc<dyn TorrentClient + Send>,
+    metadata_service: Arc<dyn MetadataService + Send>,
+    radio_manager_client: Arc<dyn RadioManagerClient + Send>,
 }
 
 impl TrackRequestProcessor {
     pub fn new(
-        state_storage: Arc<dyn StateStorage>,
-        search_provider: Arc<dyn SearchProvider>,
-        torrent_client: Arc<dyn TorrentClient>,
-        metadata_service: Arc<dyn MetadataService>,
-        radio_manager_client: Arc<dyn RadioManagerClient>,
+        state_storage: Arc<dyn StateStorage + Send>,
+        search_provider: Arc<dyn SearchProvider + Send>,
+        torrent_client: Arc<dyn TorrentClient + Send>,
+        metadata_service: Arc<dyn MetadataService + Send>,
+        radio_manager_client: Arc<dyn RadioManagerClient + Send>,
     ) -> Self {
         Self {
             state_storage,

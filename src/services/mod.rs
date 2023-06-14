@@ -9,3 +9,6 @@ pub(crate) use transmission_client::*;
 
 mod radio_manager_client;
 pub(crate) use radio_manager_client::*;
+
+mod search_provider;
+pub(crate) use search_provider::*;

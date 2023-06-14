@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use request_processors::{
     RadioManagerChannelId, RadioManagerClientError, RadioManagerLinkId, RadioManagerTrackId, UserId,
 };
@@ -14,6 +15,7 @@ impl RadioManagerClient {
     }
 }
 
+#[async_trait]
 impl request_processors::RadioManagerClient for RadioManagerClient {
     async fn upload_audio_track(
         &self,

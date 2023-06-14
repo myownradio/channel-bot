@@ -4,9 +4,9 @@ use std::ops::Deref;
 #[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct TorrentId(i64);
 
-impl Into<TorrentId> for &str {
+impl Into<TorrentId> for i64 {
     fn into(self) -> TorrentId {
-        TorrentId(self.)
+        TorrentId(self)
     }
 }
 
