@@ -4,6 +4,8 @@ pub(crate) use traits::*;
 mod types;
 pub(crate) use types::*;
 
+pub(crate) mod dependencies;
+
 #[cfg(test)]
 mod processor_tests;
 

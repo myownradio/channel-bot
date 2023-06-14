@@ -129,22 +129,3 @@ impl TransmissionClient {
         Ok(())
     }
 }
-
-#[async_trait]
-impl TorrentClientTrait for TransmissionClient {
-    async fn create(
-        &self,
-        path_to_download: &str,
-        torrent_file_data: Vec<u8>,
-    ) -> Result<TorrentId, TorrentClientError> {
-        todo!()
-    }
-
-    async fn get(&self, torrent_id: &TorrentId) -> Result<Torrent, TorrentClientError> {
-        todo!()
-    }
-
-    async fn delete(&self, torrent_id: &TorrentId) -> Result<(), TorrentClientError> {
-        todo!()
-    }
-}

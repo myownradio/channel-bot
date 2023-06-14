@@ -6,6 +6,12 @@ use tracing::error;
 
 pub(crate) struct MetadataService;
 
+impl MetadataService {
+    pub(crate) fn new() -> Self {
+        Self
+    }
+}
+
 #[async_trait]
 impl track_request_processor::MetadataServiceTrait for MetadataService {
     async fn get_audio_metadata(

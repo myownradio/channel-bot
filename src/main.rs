@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::services::track_request_processor::dependencies::TorrentClient;
 use crate::services::{
     track_request_processor, MemoryBasedStorage, MetadataService, RadioManagerClient,
     TrackRequestProcessor, TransmissionClient,
@@ -41,21 +42,25 @@ async fn main() -> std::io::Result<()> {
         config.transmission.password.clone(),
         config.transmission.download_directory.clone(),
     ));
-    let metadata_service = Arc::new(MetadataService);
     let radio_manager_client = Arc::new(RadioManagerClient::create(&config.radiomanager.endpoint));
 
-    let track_request_processor = Arc::new(TrackRequestProcessor::new(
-        Arc::clone(&state_storage)
-            as Arc<dyn track_request_processor::StateStorageTrait + Send + 'static>,
-        Arc::clone(&rutracker_client)
-            as Arc<dyn track_request_processor::SearchProviderTrait + Send + 'static>,
-        Arc::clone(&transmission_client)
-            as Arc<dyn track_request_processor::TorrentClientTrait + Send + 'static>,
-        Arc::clone(&metadata_service)
-            as Arc<dyn track_request_processor::MetadataServiceTrait + Send + 'static>,
-        Arc::clone(&radio_manager_client)
-            as Arc<dyn track_request_processor::RadioManagerClientTrait + Send + 'static>,
-    ));
+    let track_request_processor = {
+        let torrent_client = TorrentClient(Arc::clone(&transmission_client));
+        let metadata_service = MetadataService::new();
+
+        Arc::new(TrackRequestProcessor::new(
+            Arc::clone(&state_storage)
+                as Arc<dyn track_request_processor::StateStorageTrait + Send + 'static>,
+            Arc::clone(&rutracker_client)
+                as Arc<dyn track_request_processor::SearchProviderTrait + Send + 'static>,
+            Arc::new(torrent_client)
+                as Arc<dyn track_request_processor::TorrentClientTrait + Send + 'static>,
+            Arc::new(metadata_service)
+                as Arc<dyn track_request_processor::MetadataServiceTrait + Send + 'static>,
+            Arc::clone(&radio_manager_client)
+                as Arc<dyn track_request_processor::RadioManagerClientTrait + Send + 'static>,
+        ))
+    };
 
     let shutdown_timeout = config.shutdown_timeout.clone();
     let bind_address = config.bind_address.clone();
