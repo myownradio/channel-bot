@@ -1,7 +1,8 @@
-use async_trait::async_trait;
-use request_processors::{
-    RadioManagerChannelId, RadioManagerClientError, RadioManagerLinkId, RadioManagerTrackId, UserId,
+use crate::services::track_request_processor::{
+    RadioManagerChannelId, RadioManagerClient as RadioManagerClientTrait, RadioManagerClientError,
+    RadioManagerLinkId, RadioManagerTrackId, UserId,
 };
+use async_trait::async_trait;
 
 pub(crate) struct RadioManagerClient {
     endpoint: String,
@@ -16,7 +17,7 @@ impl RadioManagerClient {
 }
 
 #[async_trait]
-impl request_processors::RadioManagerClient for RadioManagerClient {
+impl RadioManagerClientTrait for RadioManagerClient {
     async fn upload_audio_track(
         &self,
         user_id: &UserId,

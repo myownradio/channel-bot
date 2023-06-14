@@ -1177,7 +1177,6 @@ dependencies = [
  "base64",
  "envy",
  "futures-lite",
- "request-processors",
  "reqwest",
  "scraper",
  "search-providers",
@@ -1603,19 +1602,6 @@ name = "regex-syntax"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "436b050e76ed2903236f032a59761c1eb99e1b0aead2c257922771dab1fc8c78"
-
-[[package]]
-name = "request-processors"
-version = "0.1.0"
-dependencies = [
- "actix-rt",
- "async-trait",
- "serde",
- "serde_json",
- "thiserror",
- "tracing",
- "uuid",
-]
 
 [[package]]
 name = "reqwest"

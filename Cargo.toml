@@ -10,7 +10,6 @@ members = ["crates/*"]
 
 [dependencies]
 search-providers = { version = "0.1.0", path = "crates/search-providers" }
-request-processors = { version = "0.1.0", path = "crates/request-processors" }
 
 async-trait = { version = "0.1.68" }
 tracing = { version = "0.1.37" }

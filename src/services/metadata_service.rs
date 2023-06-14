@@ -1,12 +1,13 @@
+use crate::services::track_request_processor;
+use crate::services::track_request_processor::{AudioMetadata, MetadataServiceError};
 use async_trait::async_trait;
 use audiotags::Tag;
-use request_processors::{AudioMetadata, MetadataServiceError};
 use tracing::error;
 
 pub(crate) struct MetadataService;
 
 #[async_trait]
-impl request_processors::MetadataService for MetadataService {
+impl track_request_processor::MetadataService for MetadataService {
     async fn get_audio_metadata(
         &self,
         file_path: &str,

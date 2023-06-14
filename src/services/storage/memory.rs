@@ -1,8 +1,8 @@
-use async_trait::async_trait;
-use request_processors::{
-    RequestId, StateStorageError, TrackRequestProcessingContext, TrackRequestProcessingState,
-    UserId,
+use crate::services::track_request_processor::{
+    RequestId, StateStorage, StateStorageError, TrackRequestProcessingContext,
+    TrackRequestProcessingState, UserId,
 };
+use async_trait::async_trait;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
@@ -55,7 +55,7 @@ impl MemoryBasedStorage {
 }
 
 #[async_trait]
-impl request_processors::StateStorage for MemoryBasedStorage {
+impl StateStorage for MemoryBasedStorage {
     async fn create_state(
         &self,
         user_id: &UserId,

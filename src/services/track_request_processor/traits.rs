@@ -1,8 +1,8 @@
-use crate::track::{
+use super::types::{
     AudioMetadata, DownloadId, RadioManagerChannelId, RadioManagerLinkId, RadioManagerTrackId,
-    RequestId, TopicData, TopicId, Torrent, TorrentId, TrackRequestProcessingContext,
-    TrackRequestProcessingState, UserId,
+    RequestId, TopicData, Torrent, TorrentId, UserId,
 };
+use super::{TrackRequestProcessingContext, TrackRequestProcessingState};
 use async_trait::async_trait;
 use std::fmt::Formatter;
 

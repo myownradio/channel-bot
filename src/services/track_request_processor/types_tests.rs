@@ -1,7 +1,5 @@
-use crate::{
-    DownloadId, RadioManagerLinkId, RadioManagerTrackId, TorrentId, TrackRequestProcessingState,
-    TrackRequestProcessingStep,
-};
+use super::types::{DownloadId, RadioManagerLinkId, RadioManagerTrackId, TorrentId};
+use super::{TrackRequestProcessingState, TrackRequestProcessingStep};
 
 #[test]
 fn should_return_search_audio_album_by_default() {

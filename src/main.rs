@@ -1,6 +1,7 @@
 use crate::config::Config;
 use crate::services::{
-    MemoryBasedStorage, MetadataService, RadioManagerClient, RuTrackerClient, TransmissionClient,
+    track_request_processor, MemoryBasedStorage, MetadataService, RadioManagerClient,
+    TrackRequestProcessor, TransmissionClient,
 };
 use actix_rt::signal::unix;
 use actix_web::web::Data;
@@ -11,8 +12,8 @@ use tracing::{error, info};
 
 mod config;
 mod http;
-mod services;
-pub(crate) mod types;
+pub(crate) mod services;
+mod types;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -26,14 +27,14 @@ async fn main() -> std::io::Result<()> {
     info!("Starting application...");
 
     let state_storage = Arc::new(MemoryBasedStorage::new());
-    let rutracker_client = Arc::new(RuTrackerClient(
+    let rutracker_client = Arc::new(
         search_providers::RuTrackerClient::create(
             &config.rutracker.username,
             &config.rutracker.password,
         )
         .await
         .expect("Unable to initialize RuTracker client"),
-    ));
+    );
     let transmission_client = Arc::new(TransmissionClient::create(
         config.transmission.transmission_rpc_endpoint.clone(),
         config.transmission.username.clone(),
@@ -43,16 +44,17 @@ async fn main() -> std::io::Result<()> {
     let metadata_service = Arc::new(MetadataService);
     let radio_manager_client = Arc::new(RadioManagerClient::create(&config.radiomanager.endpoint));
 
-    let track_request_processor = Arc::new(request_processors::TrackRequestProcessor::new(
-        Arc::clone(&state_storage) as Arc<dyn request_processors::StateStorage + Send + 'static>,
+    let track_request_processor = Arc::new(TrackRequestProcessor::new(
+        Arc::clone(&state_storage)
+            as Arc<dyn track_request_processor::StateStorage + Send + 'static>,
         Arc::clone(&rutracker_client)
-            as Arc<dyn request_processors::SearchProvider + Send + 'static>,
+            as Arc<dyn track_request_processor::SearchProvider + Send + 'static>,
         Arc::clone(&transmission_client)
-            as Arc<dyn request_processors::TorrentClient + Send + 'static>,
+            as Arc<dyn track_request_processor::TorrentClient + Send + 'static>,
         Arc::clone(&metadata_service)
-            as Arc<dyn request_processors::MetadataService + Send + 'static>,
+            as Arc<dyn track_request_processor::MetadataService + Send + 'static>,
         Arc::clone(&radio_manager_client)
-            as Arc<dyn request_processors::RadioManagerClient + Send + 'static>,
+            as Arc<dyn track_request_processor::RadioManagerClient + Send + 'static>,
     ));
 
     let shutdown_timeout = config.shutdown_timeout.clone();

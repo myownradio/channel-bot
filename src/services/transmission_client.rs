@@ -1,7 +1,9 @@
+use crate::services::track_request_processor::{
+    Torrent, TorrentClient, TorrentClientError, TorrentId,
+};
 use async_lock::Mutex;
 use async_trait::async_trait;
 use base64::{engine::general_purpose::STANDARD, Engine};
-use request_processors::{Torrent, TorrentClientError};
 use std::ops::Deref;
 use transmission_rpc::types::{
     BasicAuth, Id, RpcResponse, TorrentAddArgs, TorrentAddedOrDuplicate,
@@ -11,16 +13,6 @@ use transmission_rpc::TransClient;
 pub(crate) struct TransmissionClient {
     client: Mutex<TransClient>,
     download_dir: String,
-}
-
-pub(crate) struct TorrentId(pub(crate) i64);
-
-impl Deref for TorrentId {
-    type Target = i64;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -139,26 +131,20 @@ impl TransmissionClient {
 }
 
 #[async_trait]
-impl request_processors::TorrentClient for TransmissionClient {
+impl TorrentClient for TransmissionClient {
     async fn create(
         &self,
         path_to_download: &str,
         torrent_file_data: Vec<u8>,
-    ) -> Result<request_processors::TorrentId, TorrentClientError> {
+    ) -> Result<TorrentId, TorrentClientError> {
         todo!()
     }
 
-    async fn get(
-        &self,
-        torrent_id: &request_processors::TorrentId,
-    ) -> Result<Torrent, TorrentClientError> {
+    async fn get(&self, torrent_id: &TorrentId) -> Result<Torrent, TorrentClientError> {
         todo!()
     }
 
-    async fn delete(
-        &self,
-        torrent_id: &request_processors::TorrentId,
-    ) -> Result<(), TorrentClientError> {
+    async fn delete(&self, torrent_id: &TorrentId) -> Result<(), TorrentClientError> {
         todo!()
     }
 }

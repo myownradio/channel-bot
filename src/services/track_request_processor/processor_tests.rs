@@ -1,13 +1,16 @@
-use crate::track::ProcessingRequestError::{DownloaderError, RadioManagerError};
-use crate::track::{
-    AudioMetadata, MetadataService, MetadataServiceError, RadioManagerChannelId,
-    RadioManagerClient, RadioManagerClientError, RadioManagerLinkId, RadioManagerTrackId,
-    RequestId, SearchProvider, SearchProviderError, StateStorage, StateStorageError, TopicData,
-    Torrent, TorrentClient, TorrentClientError, TorrentId, TorrentStatus,
-    TrackRequestProcessingContext, TrackRequestProcessingState, TrackRequestProcessingStep,
-    TrackRequestProcessor, UserId,
+use super::traits::{
+    MetadataService, MetadataServiceError, RadioManagerClient, RadioManagerClientError,
+    SearchProvider, SearchProviderError, StateStorage, StateStorageError, TorrentClient,
+    TorrentClientError,
 };
-use crate::{DownloadId, TopicId};
+use super::types::{
+    AudioMetadata, DownloadId, RadioManagerChannelId, RadioManagerLinkId, RadioManagerTrackId,
+    RequestId, TopicData, TopicId, Torrent, TorrentId, TorrentStatus, UserId,
+};
+use super::{
+    TrackRequestProcessingContext, TrackRequestProcessingState, TrackRequestProcessingStep,
+    TrackRequestProcessor,
+};
 use async_trait::async_trait;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;

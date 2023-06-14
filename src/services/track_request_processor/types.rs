@@ -3,19 +3,13 @@ use std::ops::Deref;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct RequestId(Uuid);
+pub struct RequestId(pub(crate) Uuid);
 
 impl Deref for RequestId {
     type Target = Uuid;
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl Into<RequestId> for Uuid {
-    fn into(self) -> RequestId {
-        RequestId(self)
     }
 }
 
@@ -52,7 +46,7 @@ impl std::fmt::Display for RadioManagerLinkId {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Default)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct AudioMetadata {
     pub title: String,
     pub artist: String,
@@ -78,7 +72,6 @@ pub struct TopicData {
     pub(crate) title: String,
 }
 
-// UserId
 #[derive(Eq, PartialEq, Clone, Hash, Debug)]
 pub struct UserId(pub(crate) u64);
 
@@ -102,7 +95,6 @@ impl std::fmt::Display for UserId {
     }
 }
 
-// TopicId
 #[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize, Deserialize)]
 pub struct TopicId(pub(crate) u64);
 
@@ -132,7 +124,12 @@ impl Deref for DownloadId {
     }
 }
 
-// TorrentId
+impl std::fmt::Display for DownloadId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize, Deserialize)]
 pub struct TorrentId(pub(crate) i64);
 
@@ -141,12 +138,6 @@ impl Deref for TorrentId {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl Into<TorrentId> for i64 {
-    fn into(self) -> TorrentId {
-        TorrentId(self)
     }
 }
 

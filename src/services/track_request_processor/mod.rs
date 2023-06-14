@@ -1,9 +1,15 @@
-use crate::track::{traits, TorrentStatus};
-use crate::{
-    AudioMetadata, DownloadId, MetadataService, RadioManagerChannelId, RadioManagerClient,
-    RadioManagerLinkId, RadioManagerTrackId, RequestId, SearchProvider, StateStorage, TopicData,
-    TopicId, TorrentClient, TorrentId, UserId,
-};
+mod traits;
+pub(crate) use traits::*;
+
+mod types;
+pub(crate) use types::*;
+
+#[cfg(test)]
+mod processor_tests;
+
+#[cfg(test)]
+mod types_tests;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -12,23 +18,17 @@ use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TrackRequestProcessingContext {
-    pub(crate) track_title: String,
-    pub(crate) track_artist: String,
-    pub(crate) track_album: String,
+    pub(crate) metadata: AudioMetadata,
     pub(crate) target_channel_id: RadioManagerChannelId,
 }
 
 impl TrackRequestProcessingContext {
     pub(crate) fn new(
-        track_title: String,
-        track_artist: String,
-        track_album: String,
+        track_metadata: AudioMetadata,
         target_channel_id: RadioManagerChannelId,
     ) -> Self {
         Self {
-            track_title,
-            track_artist,
-            track_album,
+            metadata: track_metadata,
             target_channel_id,
         }
     }
@@ -77,23 +77,23 @@ pub enum TrackRequestProcessingStep {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum CreatingJobError {
+pub enum CreateRequestError {
     #[error(transparent)]
-    StateStorageError(#[from] traits::StateStorageError),
+    StateStorageError(#[from] StateStorageError),
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum ProcessingRequestError {
+pub enum ProcessRequestError {
     #[error(transparent)]
-    StateStorageError(#[from] traits::StateStorageError),
+    StateStorageError(#[from] StateStorageError),
     #[error(transparent)]
-    SearchProviderError(#[from] traits::SearchProviderError),
+    SearchProviderError(#[from] SearchProviderError),
     #[error(transparent)]
-    DownloaderError(#[from] traits::TorrentClientError),
+    DownloaderError(#[from] TorrentClientError),
     #[error(transparent)]
-    MetadataServiceError(#[from] traits::MetadataServiceError),
+    MetadataServiceError(#[from] MetadataServiceError),
     #[error(transparent)]
-    RadioManagerError(#[from] traits::RadioManagerClientError),
+    RadioManagerError(#[from] RadioManagerClientError),
 }
 
 pub struct TrackRequestProcessor {
@@ -126,14 +126,10 @@ impl TrackRequestProcessor {
         user_id: &UserId,
         track_metadata: &AudioMetadata,
         target_channel_id: &RadioManagerChannelId,
-    ) -> Result<RequestId, CreatingJobError> {
-        let request_id = Uuid::new_v4().into();
-        let ctx = TrackRequestProcessingContext::new(
-            track_metadata.title.clone(),
-            track_metadata.artist.clone(),
-            track_metadata.album.clone(),
-            target_channel_id.clone(),
-        );
+    ) -> Result<RequestId, CreateRequestError> {
+        let request_id = RequestId(Uuid::new_v4());
+        let ctx =
+            TrackRequestProcessingContext::new(track_metadata.clone(), target_channel_id.clone());
         let state = TrackRequestProcessingState::default();
 
         self.state_storage
@@ -152,7 +148,7 @@ impl TrackRequestProcessor {
         &self,
         user_id: &UserId,
         request_id: &RequestId,
-    ) -> Result<(), ProcessingRequestError> {
+    ) -> Result<(), ProcessRequestError> {
         info!(%user_id, %request_id, "Track processing request");
 
         let ctx = self.state_storage.load_context(user_id, request_id).await?;
@@ -182,7 +178,7 @@ impl TrackRequestProcessor {
         user_id: &UserId,
         ctx: &TrackRequestProcessingContext,
         state: &mut TrackRequestProcessingState,
-    ) -> Result<(), ProcessingRequestError> {
+    ) -> Result<(), ProcessRequestError> {
         let step = state.get_step();
 
         debug!(%user_id, ?step, "Running next processing step");
@@ -218,8 +214,8 @@ impl TrackRequestProcessor {
         _user_id: &UserId,
         ctx: &TrackRequestProcessingContext,
         state: &mut TrackRequestProcessingState,
-    ) -> Result<(), ProcessingRequestError> {
-        let query = format!("{} - {}", ctx.track_artist, ctx.track_album);
+    ) -> Result<(), ProcessRequestError> {
+        let query = format!("{} - {}", ctx.metadata.artist, ctx.metadata.album);
         let results = self.search_provider.search_music(&query).await?;
 
         let tried_topics_set = state.tried_topics.iter().collect::<HashSet<_>>();
@@ -251,7 +247,7 @@ impl TrackRequestProcessor {
         _user_id: &UserId,
         _ctx: &TrackRequestProcessingContext,
         state: &mut TrackRequestProcessingState,
-    ) -> Result<(), ProcessingRequestError> {
+    ) -> Result<(), ProcessRequestError> {
         let download_id = state
             .current_download_id
             .clone()
@@ -272,7 +268,7 @@ impl TrackRequestProcessor {
         _user_id: &UserId,
         _ctx: &TrackRequestProcessingContext,
         state: &mut TrackRequestProcessingState,
-    ) -> Result<(), ProcessingRequestError> {
+    ) -> Result<(), ProcessRequestError> {
         let torrent_data = state
             .current_torrent_data
             .clone()
@@ -296,7 +292,7 @@ impl TrackRequestProcessor {
         _user_id: &UserId,
         ctx: &TrackRequestProcessingContext,
         state: &mut TrackRequestProcessingState,
-    ) -> Result<(), ProcessingRequestError> {
+    ) -> Result<(), ProcessRequestError> {
         let torrent_id = state
             .current_torrent_id
             .clone()
@@ -319,7 +315,7 @@ impl TrackRequestProcessor {
                 None => continue,
             };
 
-            if metadata.artist == ctx.track_artist && metadata.title == ctx.track_title {
+            if metadata.artist == ctx.metadata.artist && metadata.title == ctx.metadata.title {
                 state.path_to_downloaded_file.replace(file);
                 return Ok(());
             }
@@ -338,7 +334,7 @@ impl TrackRequestProcessor {
         user_id: &UserId,
         _ctx: &TrackRequestProcessingContext,
         state: &mut TrackRequestProcessingState,
-    ) -> Result<(), ProcessingRequestError> {
+    ) -> Result<(), ProcessRequestError> {
         let path = state
             .path_to_downloaded_file
             .clone()
@@ -362,7 +358,7 @@ impl TrackRequestProcessor {
         user_id: &UserId,
         ctx: &TrackRequestProcessingContext,
         state: &mut TrackRequestProcessingState,
-    ) -> Result<(), ProcessingRequestError> {
+    ) -> Result<(), ProcessRequestError> {
         let track_id = state
             .radio_manager_track_id
             .clone()

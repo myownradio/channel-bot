@@ -1,19 +1,11 @@
+use crate::services::track_request_processor::{
+    DownloadId, SearchProvider, SearchProviderError, TopicData,
+};
 use async_trait::async_trait;
-use request_processors::{DownloadId, SearchProviderError, TopicData};
-use std::ops::Deref;
-
-pub(crate) struct RuTrackerClient(pub(crate) search_providers::RuTrackerClient);
-
-impl Deref for RuTrackerClient {
-    type Target = search_providers::RuTrackerClient;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+use search_providers::RuTrackerClient;
 
 #[async_trait]
-impl request_processors::SearchProvider for RuTrackerClient {
+impl SearchProvider for RuTrackerClient {
     async fn search_music(&self, query: &str) -> Result<Vec<TopicData>, SearchProviderError> {
         todo!()
     }
