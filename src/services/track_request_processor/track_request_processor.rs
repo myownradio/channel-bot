@@ -9,7 +9,7 @@ use std::time::Duration;
 use tracing::{debug, error, info};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) struct RequestId(pub(crate) Uuid);
 
 impl Deref for RequestId {
@@ -411,6 +411,7 @@ impl TrackRequestProcessor {
             self.state_storage
                 .update_state(user_id, request_id, &state)
                 .await?;
+            actix_rt::time::sleep(Duration::from_secs(10)).await;
         }
 
         info!("Track processing finished");
@@ -523,7 +524,8 @@ impl TrackRequestProcessor {
             .take()
             .expect("current_torrent_data should be defined");
 
-        debug!("Adding torrent to the torrent client...");
+        let size = torrent_data.len();
+        debug!("Adding torrent to the torrent client... (size = {})", size);
 
         let torrent_id = self
             .torrent_client
@@ -564,12 +566,14 @@ impl TrackRequestProcessor {
 
         for file in torrent.files {
             debug!("Checking metadata of {} file...", file);
-            let metadata = match self.metadata_service.get_audio_metadata(&file).await? {
-                Some(metadata) => metadata,
-                None => continue,
+            let metadata = match self.metadata_service.get_audio_metadata(&file).await {
+                Ok(Some(metadata)) => metadata,
+                _ => continue,
             };
 
-            if metadata.artist == ctx.metadata.artist && metadata.title == ctx.metadata.title {
+            if metadata.artist.starts_with(&ctx.metadata.artist)
+                && metadata.title.starts_with(&ctx.metadata.title)
+            {
                 info!("Found audio file that matches the requested audio track!");
                 state.path_to_downloaded_file.replace(file);
                 return Ok(());

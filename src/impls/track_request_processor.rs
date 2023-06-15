@@ -137,6 +137,7 @@ impl TorrentClientTrait for TransmissionClient {
             .get(torrent_id)
             .await
             .map_err(|err| TorrentClientError(Box::from(err)))?;
+        let download_dir = torrent.download_dir.clone().unwrap_or_default();
 
         Ok(Torrent {
             status: match torrent.status {
@@ -147,7 +148,7 @@ impl TorrentClientTrait for TransmissionClient {
                 .files
                 .unwrap_or_default()
                 .into_iter()
-                .map(|f| f.name)
+                .map(|f| format!("{}/{}", download_dir, f.name))
                 .collect(),
         })
     }

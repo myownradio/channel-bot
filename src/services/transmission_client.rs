@@ -54,7 +54,7 @@ impl TransmissionClient {
             .await
             .torrent_add(TorrentAddArgs {
                 metainfo: Some(metainfo.clone()),
-                download_dir: Some(format!("{}/{}/", path, self.download_dir.clone(),)),
+                download_dir: Some(format!("{}/{}/", self.download_dir.clone(), path)),
                 ..TorrentAddArgs::default()
             })
             .await?;

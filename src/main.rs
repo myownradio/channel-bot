@@ -5,7 +5,7 @@ use crate::services::{
 use crate::storage::InMemoryStorage;
 use actix_rt::signal::unix;
 use actix_web::web::Data;
-use actix_web::{App, HttpServer};
+use actix_web::{web, App, HttpServer};
 use futures_lite::FutureExt;
 use std::sync::Arc;
 use tracing::{error, info};
@@ -23,6 +23,9 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 async fn main() -> std::io::Result<()> {
     let mut terminate = unix::signal(unix::SignalKind::terminate())?;
     let mut interrupt = unix::signal(unix::SignalKind::interrupt())?;
+
+    dotenv::dotenv().ok();
+    env_logger::init();
 
     let config = Arc::from(Config::from_env());
 
@@ -58,7 +61,11 @@ async fn main() -> std::io::Result<()> {
     let bind_address = config.bind_address.clone();
 
     let server = HttpServer::new({
-        move || App::new().app_data(Data::new(Arc::clone(&track_request_processor)))
+        move || {
+            App::new()
+                .app_data(Data::new(Arc::clone(&track_request_processor)))
+                .service(web::resource("/create").route(web::post().to(http::make_track_request)))
+        }
     })
     .shutdown_timeout(shutdown_timeout)
     .bind(bind_address)?
