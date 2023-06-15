@@ -86,10 +86,16 @@ impl RuTrackerClient {
         Ok(parse_search_results(&raw_html)?)
     }
 
-    pub async fn download_torrent(&self, torrent_id: u64) -> Result<Vec<u8>, RuTrackerClientError> {
+    pub async fn download_torrent(
+        &self,
+        download_id: u64,
+    ) -> Result<Vec<u8>, RuTrackerClientError> {
         let response = self
             .client
-            .get(format!("{}/forum/dl.php?t={}", RU_TRACKER_HOST, torrent_id))
+            .get(format!(
+                "{}/forum/dl.php?t={}",
+                RU_TRACKER_HOST, download_id
+            ))
             .send()
             .await?;
         let status = response.status();

@@ -2,7 +2,7 @@ use crate::services::track_request_processor::{
     AudioMetadata, DownloadId, MetadataServiceError, MetadataServiceTrait, RadioManagerChannelId,
     RadioManagerClientError, RadioManagerClientTrait, RadioManagerLinkId, RadioManagerTrackId,
     RequestId, SearchProviderError, SearchProviderTrait, StateStorageError, StateStorageTrait,
-    TopicData, Torrent, TorrentClientError, TorrentClientTrait, TorrentId, TorrentStatus,
+    TopicData, TopicId, Torrent, TorrentClientError, TorrentClientTrait, TorrentId, TorrentStatus,
     TrackRequestProcessingContext, TrackRequestProcessingState,
 };
 use crate::services::{MetadataService, RadioManagerClient, TransmissionClient};
@@ -161,17 +161,32 @@ impl TorrentClientTrait for TransmissionClient {
     }
 }
 
+impl Into<TopicData> for search_providers::TopicData {
+    fn into(self) -> TopicData {
+        TopicData {
+            title: self.title,
+            download_id: DownloadId(*self.download_id),
+            topic_id: TopicId(*self.topic_id),
+        }
+    }
+}
+
 #[async_trait]
 impl SearchProviderTrait for RuTrackerClient {
     async fn search_music(&self, query: &str) -> Result<Vec<TopicData>, SearchProviderError> {
-        todo!()
+        self.search_music(query)
+            .await
+            .map(|results| results.into_iter().map(Into::into).collect())
+            .map_err(|error| SearchProviderError(Box::new(error)))
     }
 
     async fn download_torrent(
         &self,
         download_id: &DownloadId,
     ) -> Result<Vec<u8>, SearchProviderError> {
-        todo!()
+        RuTrackerClient::download_torrent(&self, **download_id)
+            .await
+            .map_err(|error| SearchProviderError(Box::new(error)))
     }
 }
 
