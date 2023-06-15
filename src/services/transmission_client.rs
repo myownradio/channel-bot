@@ -1,7 +1,7 @@
 use async_lock::Mutex;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use transmission_rpc::types::{
-    BasicAuth, Id, RpcResponse, TorrentAddArgs, TorrentAddedOrDuplicate,
+    BasicAuth, Id, RpcResponse, Torrent, TorrentAddArgs, TorrentAddedOrDuplicate,
 };
 use transmission_rpc::TransClient;
 
@@ -14,6 +14,8 @@ pub(crate) struct TransmissionClient {
 pub(crate) enum TransmissionClientError {
     #[error("Torrent already exists")]
     AlreadyExists,
+    #[error("Torrent not found")]
+    NotFound,
     #[error("Erroneous result: {0}")]
     ErroneousResult(String),
     #[error("Unable to perform RPC request on transmission server: {0}")]
@@ -43,7 +45,7 @@ impl TransmissionClient {
         }
     }
 
-    pub(crate) async fn add(&self, torrent_file_content: Vec<u8>) -> Result<i64> {
+    pub(crate) async fn add(&self, path: &str, torrent_file_content: Vec<u8>) -> Result<i64> {
         let metainfo = STANDARD.encode(torrent_file_content);
 
         let RpcResponse { arguments, result } = self
@@ -52,7 +54,7 @@ impl TransmissionClient {
             .await
             .torrent_add(TorrentAddArgs {
                 metainfo: Some(metainfo.clone()),
-                download_dir: Some(format!("{}/", self.download_dir.clone(),)),
+                download_dir: Some(format!("{}/{}/", path, self.download_dir.clone(),)),
                 ..TorrentAddArgs::default()
             })
             .await?;
@@ -102,7 +104,7 @@ impl TransmissionClient {
         Ok(())
     }
 
-    pub(crate) async fn get(&self, torrent_id: &i64) -> Result<()> {
+    pub(crate) async fn get(&self, torrent_id: &i64) -> Result<Torrent> {
         let RpcResponse { result, arguments } = self
             .client
             .lock()
@@ -114,6 +116,8 @@ impl TransmissionClient {
             return Err(TransmissionClientError::ErroneousResult(result));
         }
 
-        Ok(())
+        let maybe_torrent = arguments.torrents.into_iter().next();
+
+        maybe_torrent.ok_or(TransmissionClientError::NotFound)
     }
 }

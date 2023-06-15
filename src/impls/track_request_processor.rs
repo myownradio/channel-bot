@@ -2,7 +2,7 @@ use crate::services::track_request_processor::{
     AudioMetadata, DownloadId, MetadataServiceError, MetadataServiceTrait, RadioManagerChannelId,
     RadioManagerClientError, RadioManagerClientTrait, RadioManagerLinkId, RadioManagerTrackId,
     RequestId, SearchProviderError, SearchProviderTrait, StateStorageError, StateStorageTrait,
-    TopicData, Torrent, TorrentClientError, TorrentClientTrait, TorrentId,
+    TopicData, Torrent, TorrentClientError, TorrentClientTrait, TorrentId, TorrentStatus,
     TrackRequestProcessingContext, TrackRequestProcessingState,
 };
 use crate::services::{MetadataService, RadioManagerClient, TransmissionClient};
@@ -124,15 +124,40 @@ impl TorrentClientTrait for TransmissionClient {
         path_to_download: &str,
         torrent_file_data: Vec<u8>,
     ) -> Result<TorrentId, TorrentClientError> {
-        todo!()
+        let torrent_id = self
+            .add(path_to_download, torrent_file_data)
+            .await
+            .map_err(|err| TorrentClientError(Box::from(err)))?;
+
+        Ok(TorrentId(torrent_id))
     }
 
     async fn get_torrent(&self, torrent_id: &TorrentId) -> Result<Torrent, TorrentClientError> {
-        todo!()
+        let torrent = self
+            .get(torrent_id)
+            .await
+            .map_err(|err| TorrentClientError(Box::from(err)))?;
+
+        Ok(Torrent {
+            status: match torrent.status {
+                Some(transmission_rpc::types::TorrentStatus::Seeding) => TorrentStatus::Complete,
+                _ => TorrentStatus::Downloading,
+            },
+            files: torrent
+                .files
+                .unwrap_or_default()
+                .into_iter()
+                .map(|f| f.name)
+                .collect(),
+        })
     }
 
     async fn delete_torrent(&self, torrent_id: &TorrentId) -> Result<(), TorrentClientError> {
-        todo!()
+        self.remove_with_data(torrent_id)
+            .await
+            .map_err(|err| TorrentClientError(Box::from(err)))?;
+
+        Ok(())
     }
 }
 
