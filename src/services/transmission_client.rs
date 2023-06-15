@@ -1,10 +1,5 @@
-use crate::services::track_request_processor::{
-    Torrent, TorrentClientError, TorrentClientTrait, TorrentId,
-};
 use async_lock::Mutex;
-use async_trait::async_trait;
 use base64::{engine::general_purpose::STANDARD, Engine};
-use std::ops::Deref;
 use transmission_rpc::types::{
     BasicAuth, Id, RpcResponse, TorrentAddArgs, TorrentAddedOrDuplicate,
 };
@@ -25,7 +20,7 @@ pub(crate) enum TransmissionClientError {
     TransmissionError(#[from] Box<dyn std::error::Error + Send + Sync>),
 }
 
-pub(crate) type TransmissionClientResult<T> = Result<T, TransmissionClientError>;
+pub(crate) type Result<T> = std::result::Result<T, TransmissionClientError>;
 
 impl TransmissionClient {
     pub(crate) fn create(
@@ -48,10 +43,7 @@ impl TransmissionClient {
         }
     }
 
-    pub(crate) async fn add(
-        &self,
-        torrent_file_content: Vec<u8>,
-    ) -> TransmissionClientResult<TorrentId> {
+    pub(crate) async fn add(&self, torrent_file_content: Vec<u8>) -> Result<i64> {
         let metainfo = STANDARD.encode(torrent_file_content);
 
         let RpcResponse { arguments, result } = self
@@ -76,15 +68,15 @@ impl TransmissionClient {
             }
         };
 
-        Ok(TorrentId(torrent.id.unwrap()))
+        Ok(torrent.id.unwrap())
     }
 
-    pub(crate) async fn remove(&self, torrent_id: &TorrentId) -> TransmissionClientResult<()> {
+    pub(crate) async fn remove(&self, torrent_id: &i64) -> Result<()> {
         let RpcResponse { result, .. } = self
             .client
             .lock()
             .await
-            .torrent_remove(vec![Id::Id(**torrent_id)], false)
+            .torrent_remove(vec![Id::Id(*torrent_id)], false)
             .await?;
 
         if result != "success" {
@@ -94,11 +86,8 @@ impl TransmissionClient {
         Ok(())
     }
 
-    pub(crate) async fn remove_with_data(
-        &self,
-        torrent_id: &TorrentId,
-    ) -> TransmissionClientResult<()> {
-        let id = Id::Id(**torrent_id);
+    pub(crate) async fn remove_with_data(&self, torrent_id: &i64) -> Result<()> {
+        let id = Id::Id(*torrent_id);
         let RpcResponse { result, .. } = self
             .client
             .lock()
@@ -113,13 +102,12 @@ impl TransmissionClient {
         Ok(())
     }
 
-    pub(crate) async fn get(&self, torrent_id: &TorrentId) -> TransmissionClientResult<()> {
-        let id = Id::Id(**torrent_id);
+    pub(crate) async fn get(&self, torrent_id: &i64) -> Result<()> {
         let RpcResponse { result, arguments } = self
             .client
             .lock()
             .await
-            .torrent_get(None, Some(vec![id]))
+            .torrent_get(None, Some(vec![Id::Id(*torrent_id)]))
             .await?;
 
         if result != "success" {

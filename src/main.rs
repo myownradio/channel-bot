@@ -1,9 +1,8 @@
 use crate::config::Config;
-use crate::services::track_request_processor::dependencies::TorrentClient;
 use crate::services::{
-    track_request_processor, MemoryBasedStorage, MetadataService, RadioManagerClient,
-    TrackRequestProcessor, TransmissionClient,
+    MetadataService, RadioManagerClient, TrackRequestProcessor, TransmissionClient,
 };
+use crate::storage::InMemoryStorage;
 use actix_rt::signal::unix;
 use actix_web::web::Data;
 use actix_web::{App, HttpServer};
@@ -13,7 +12,9 @@ use tracing::{error, info};
 
 mod config;
 mod http;
-pub(crate) mod services;
+mod impls;
+mod services;
+mod storage;
 mod types;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -23,42 +24,33 @@ async fn main() -> std::io::Result<()> {
     let mut terminate = unix::signal(unix::SignalKind::terminate())?;
     let mut interrupt = unix::signal(unix::SignalKind::interrupt())?;
 
-    let config = Arc::new(Config::from_env());
+    let config = Arc::from(Config::from_env());
 
     info!("Starting application...");
 
-    let state_storage = Arc::new(MemoryBasedStorage::new());
-    let rutracker_client = Arc::new(
-        search_providers::RuTrackerClient::create(
-            &config.rutracker.username,
-            &config.rutracker.password,
-        )
-        .await
-        .expect("Unable to initialize RuTracker client"),
-    );
-    let transmission_client = Arc::new(TransmissionClient::create(
+    let state_storage = InMemoryStorage::new();
+    let rutracker_client = search_providers::RuTrackerClient::create(
+        &config.rutracker.username,
+        &config.rutracker.password,
+    )
+    .await
+    .expect("Unable to initialize RuTracker client");
+    let transmission_client = TransmissionClient::create(
         config.transmission.transmission_rpc_endpoint.clone(),
         config.transmission.username.clone(),
         config.transmission.password.clone(),
         config.transmission.download_directory.clone(),
-    ));
-    let radio_manager_client = Arc::new(RadioManagerClient::create(&config.radiomanager.endpoint));
+    );
+    let radio_manager_client = RadioManagerClient::create(&config.radiomanager.endpoint);
+    let metadata_service = MetadataService::new();
 
     let track_request_processor = {
-        let torrent_client = TorrentClient(Arc::clone(&transmission_client));
-        let metadata_service = MetadataService::new();
-
         Arc::new(TrackRequestProcessor::new(
-            Arc::clone(&state_storage)
-                as Arc<dyn track_request_processor::StateStorageTrait + Send + 'static>,
-            Arc::clone(&rutracker_client)
-                as Arc<dyn track_request_processor::SearchProviderTrait + Send + 'static>,
-            Arc::new(torrent_client)
-                as Arc<dyn track_request_processor::TorrentClientTrait + Send + 'static>,
-            Arc::new(metadata_service)
-                as Arc<dyn track_request_processor::MetadataServiceTrait + Send + 'static>,
-            Arc::clone(&radio_manager_client)
-                as Arc<dyn track_request_processor::RadioManagerClientTrait + Send + 'static>,
+            Arc::from(state_storage),
+            Arc::from(rutracker_client),
+            Arc::from(transmission_client),
+            Arc::from(metadata_service),
+            Arc::from(radio_manager_client),
         ))
     };
 
