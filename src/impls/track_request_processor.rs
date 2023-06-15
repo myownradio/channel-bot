@@ -21,16 +21,28 @@ impl StateStorageTrait for InMemoryStorage {
         request_id: &RequestId,
         state: TrackRequestProcessingState,
     ) -> Result<(), StateStorageError> {
-        todo!()
+        let prefix = format!("{}-state", user_id);
+        let key = format!("{}", request_id);
+        let state_str = serde_json::to_string(&state).expect("Unable to serialize state");
+
+        self.save(&prefix, &key, &state_str);
+
+        Ok(())
     }
 
     async fn create_context(
         &self,
         user_id: &UserId,
         request_id: &RequestId,
-        state: TrackRequestProcessingContext,
+        ctx: TrackRequestProcessingContext,
     ) -> Result<(), StateStorageError> {
-        todo!()
+        let prefix = format!("{}-ctx", user_id);
+        let key = format!("{}", request_id);
+        let state_str = serde_json::to_string(&ctx).expect("Unable to serialize state");
+
+        self.save(&prefix, &key, &state_str);
+
+        Ok(())
     }
 
     async fn update_state(
@@ -39,7 +51,13 @@ impl StateStorageTrait for InMemoryStorage {
         request_id: &RequestId,
         state: &TrackRequestProcessingState,
     ) -> Result<(), StateStorageError> {
-        todo!()
+        let prefix = format!("{}-state", user_id);
+        let key = format!("{}", request_id);
+        let state_str = serde_json::to_string(&state).expect("Unable to serialize state");
+
+        self.save(&prefix, &key, &state_str);
+
+        Ok(())
     }
 
     async fn load_state(
@@ -47,7 +65,14 @@ impl StateStorageTrait for InMemoryStorage {
         user_id: &UserId,
         request_id: &RequestId,
     ) -> Result<TrackRequestProcessingState, StateStorageError> {
-        todo!()
+        let prefix = format!("{}-state", user_id);
+        let key = format!("{}", request_id);
+        let value = match self.get(&prefix, &key) {
+            Some(value) => serde_json::from_str(&value).expect("Unable to deserialize state"),
+            None => return Err(StateStorageError::not_found()),
+        };
+
+        Ok(value)
     }
 
     async fn load_context(
@@ -55,7 +80,14 @@ impl StateStorageTrait for InMemoryStorage {
         user_id: &UserId,
         request_id: &RequestId,
     ) -> Result<TrackRequestProcessingContext, StateStorageError> {
-        todo!()
+        let prefix = format!("{}-ctx", user_id);
+        let key = format!("{}", request_id);
+        let value = match self.get(&prefix, &key) {
+            Some(value) => serde_json::from_str(&value).expect("Unable to deserialize state"),
+            None => return Err(StateStorageError::not_found()),
+        };
+
+        Ok(value)
     }
 
     async fn delete_state(
@@ -63,7 +95,12 @@ impl StateStorageTrait for InMemoryStorage {
         user_id: &UserId,
         request_id: &RequestId,
     ) -> Result<(), StateStorageError> {
-        todo!()
+        let prefix = format!("{}-state", user_id);
+        let key = format!("{}", request_id);
+
+        self.delete(&prefix, &key);
+
+        Ok(())
     }
 
     async fn delete_context(
@@ -71,7 +108,12 @@ impl StateStorageTrait for InMemoryStorage {
         user_id: &UserId,
         request_id: &RequestId,
     ) -> Result<(), StateStorageError> {
-        todo!()
+        let prefix = format!("{}-ctx", user_id);
+        let key = format!("{}", request_id);
+
+        self.delete(&prefix, &key);
+
+        Ok(())
     }
 }
 

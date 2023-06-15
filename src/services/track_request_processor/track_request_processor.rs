@@ -2,6 +2,7 @@ use crate::types::UserId;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::io::{Error, ErrorKind};
 use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Duration;
@@ -201,7 +202,7 @@ pub(crate) trait StateStorageTrait {
         &self,
         user_id: &UserId,
         request_id: &RequestId,
-        state: TrackRequestProcessingContext,
+        ctx: TrackRequestProcessingContext,
     ) -> Result<(), StateStorageError>;
     async fn update_state(
         &self,
@@ -233,6 +234,12 @@ pub(crate) trait StateStorageTrait {
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) struct StateStorageError(Box<dyn std::error::Error>);
+
+impl StateStorageError {
+    pub(crate) fn not_found() -> Self {
+        StateStorageError(Box::new(std::io::Error::from(ErrorKind::NotFound)))
+    }
+}
 
 impl std::fmt::Display for StateStorageError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
