@@ -20,7 +20,10 @@ fn should_return_get_album_url_if_current_topic_id_is_set() {
         ..TrackRequestProcessingState::default()
     };
 
-    assert_eq!(state.get_step(), TrackRequestProcessingStep::GetAlbumURL)
+    assert_eq!(
+        state.get_step(),
+        TrackRequestProcessingStep::DownloadTorrentFile
+    )
 }
 
 #[test]

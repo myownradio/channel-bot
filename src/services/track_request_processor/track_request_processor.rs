@@ -133,16 +133,19 @@ pub(crate) struct Torrent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct TrackRequestProcessingContext {
     pub(crate) metadata: AudioMetadata,
+    pub(crate) options: CreateRequestOptions,
     pub(crate) target_channel_id: RadioManagerChannelId,
 }
 
 impl TrackRequestProcessingContext {
     pub(crate) fn new(
-        track_metadata: AudioMetadata,
+        metadata: AudioMetadata,
+        options: CreateRequestOptions,
         target_channel_id: RadioManagerChannelId,
     ) -> Self {
         Self {
-            metadata: track_metadata,
+            metadata,
+            options,
             target_channel_id,
         }
     }
@@ -164,7 +167,7 @@ impl TrackRequestProcessingState {
         if self.current_download_id.is_none() {
             TrackRequestProcessingStep::SearchAudioAlbum
         } else if self.current_torrent_data.is_none() {
-            TrackRequestProcessingStep::GetAlbumURL
+            TrackRequestProcessingStep::DownloadTorrentFile
         } else if self.current_torrent_id.is_none() {
             TrackRequestProcessingStep::DownloadAlbum
         } else if self.path_to_downloaded_file.is_none() {
@@ -182,7 +185,7 @@ impl TrackRequestProcessingState {
 #[derive(Debug, PartialEq)]
 pub(crate) enum TrackRequestProcessingStep {
     SearchAudioAlbum,
-    GetAlbumURL,
+    DownloadTorrentFile,
     DownloadAlbum,
     CheckDownloadStatus,
     UploadToRadioManager,
@@ -354,6 +357,11 @@ pub(crate) enum ProcessRequestError {
     RadioManagerError(#[from] RadioManagerClientError),
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct CreateRequestOptions {
+    pub(crate) validate_metadata: bool,
+}
+
 impl TrackRequestProcessor {
     pub(crate) fn new(
         state_storage: Arc<dyn StateStorageTrait + Send + Sync + 'static>,
@@ -376,11 +384,15 @@ impl TrackRequestProcessor {
         &self,
         user_id: &UserId,
         track_metadata: &AudioMetadata,
+        options: &CreateRequestOptions,
         target_channel_id: &RadioManagerChannelId,
     ) -> Result<RequestId, CreateRequestError> {
         let request_id = RequestId(Uuid::new_v4());
-        let ctx =
-            TrackRequestProcessingContext::new(track_metadata.clone(), target_channel_id.clone());
+        let ctx = TrackRequestProcessingContext::new(
+            track_metadata.clone(),
+            options.clone(),
+            target_channel_id.clone(),
+        );
         let state = TrackRequestProcessingState::default();
 
         self.state_storage
@@ -438,8 +450,8 @@ impl TrackRequestProcessor {
             TrackRequestProcessingStep::SearchAudioAlbum => {
                 self.search_audio_album(user_id, ctx, state).await?;
             }
-            TrackRequestProcessingStep::GetAlbumURL => {
-                self.get_torrent_data(user_id, ctx, state).await?;
+            TrackRequestProcessingStep::DownloadTorrentFile => {
+                self.download_torrent_file(user_id, ctx, state).await?;
             }
             TrackRequestProcessingStep::DownloadAlbum => {
                 self.download_album(user_id, ctx, state).await?;
@@ -491,7 +503,7 @@ impl TrackRequestProcessor {
         Ok(())
     }
 
-    async fn get_torrent_data(
+    async fn download_torrent_file(
         &self,
         _user_id: &UserId,
         _ctx: &TrackRequestProcessingContext,
@@ -565,18 +577,28 @@ impl TrackRequestProcessor {
         debug!(%torrent_id, "Download complete. Checking files metadata...");
 
         for file in torrent.files {
-            debug!("Checking metadata of {} file...", file);
-            let metadata = match self.metadata_service.get_audio_metadata(&file).await {
-                Ok(Some(metadata)) => metadata,
-                _ => continue,
-            };
+            if ctx.options.validate_metadata {
+                debug!("Checking metadata of {} file...", file);
+                let metadata = match self.metadata_service.get_audio_metadata(&file).await {
+                    Ok(Some(metadata)) => metadata,
+                    _ => continue,
+                };
 
-            if metadata.artist.starts_with(&ctx.metadata.artist)
-                && metadata.title.starts_with(&ctx.metadata.title)
-            {
-                info!("Found audio file that matches the requested audio track!");
-                state.path_to_downloaded_file.replace(file);
-                return Ok(());
+                if metadata.artist.starts_with(&ctx.metadata.artist)
+                    && metadata.title.starts_with(&ctx.metadata.title)
+                {
+                    info!("Found audio file that matches the requested audio track!");
+                    state.path_to_downloaded_file.replace(file);
+                    return Ok(());
+                }
+            } else {
+                debug!(file, "Checking file name...");
+
+                if file.contains(&ctx.metadata.title) {
+                    info!("Found audio file that matches the requested audio track!");
+                    state.path_to_downloaded_file.replace(file);
+                    return Ok(());
+                }
             }
         }
 
