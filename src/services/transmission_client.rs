@@ -12,8 +12,6 @@ pub(crate) struct TransmissionClient {
 
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum TransmissionClientError {
-    #[error("Torrent already exists")]
-    AlreadyExists,
     #[error("Torrent not found")]
     NotFound,
     #[error("Erroneous result: {0}")]
@@ -64,10 +62,8 @@ impl TransmissionClient {
         }
 
         let torrent = match arguments {
-            TorrentAddedOrDuplicate::TorrentAdded(torrent_added) => torrent_added,
-            TorrentAddedOrDuplicate::TorrentDuplicate(_) => {
-                return Err(TransmissionClientError::AlreadyExists);
-            }
+            TorrentAddedOrDuplicate::TorrentAdded(torrent) => torrent,
+            TorrentAddedOrDuplicate::TorrentDuplicate(torrent) => torrent,
         };
 
         Ok(torrent.id.unwrap())

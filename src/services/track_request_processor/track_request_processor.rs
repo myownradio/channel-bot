@@ -2,7 +2,7 @@ use crate::types::UserId;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::io::{Error, ErrorKind};
+use std::io::ErrorKind;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Duration;
@@ -588,8 +588,6 @@ impl TrackRequestProcessor {
 
         for file in torrent.files {
             if ctx.options.validate_metadata {
-                debug!("Checking metadata of {} file...", file);
-
                 let metadata = match self.metadata_service.get_audio_metadata(&file).await {
                     Ok(Some(metadata)) => metadata,
                     _ => continue,
@@ -604,18 +602,16 @@ impl TrackRequestProcessor {
                         .to_lowercase()
                         .starts_with(&ctx.metadata.title.to_lowercase())
                 {
-                    info!("Found audio file that matches the requested audio track!");
+                    info!("Found matching audio file: {}", file);
                     state.path_to_downloaded_file.replace(file);
                     return Ok(());
                 }
             } else {
-                debug!(file, "Checking file...");
-
                 if file
                     .to_lowercase()
                     .contains(&ctx.metadata.title.to_lowercase())
                 {
-                    info!("Found audio file that matches the requested audio track!");
+                    info!("Found matching audio file: {}", file);
                     state.path_to_downloaded_file.replace(file);
                     return Ok(());
                 }

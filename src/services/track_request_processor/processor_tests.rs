@@ -6,6 +6,7 @@ use super::track_request_processor::{
     TrackRequestProcessingContext, TrackRequestProcessingState, TrackRequestProcessingStep,
     TrackRequestProcessor,
 };
+use crate::services::track_request_processor::CreateRequestOptions;
 use crate::types::UserId;
 use async_trait::async_trait;
 use std::collections::hash_map::Entry;
@@ -188,11 +189,7 @@ struct TorrentClientMock;
 
 #[async_trait]
 impl TorrentClientTrait for TorrentClientMock {
-    async fn add_torrent(
-        &self,
-        _path_to_download: &str,
-        url: Vec<u8>,
-    ) -> Result<TorrentId, TorrentClientError> {
+    async fn add_torrent(&self, url: Vec<u8>) -> Result<TorrentId, TorrentClientError> {
         match url[..] {
             [1] => Ok(TorrentId(1)),
             _ => todo!(),
@@ -248,7 +245,7 @@ impl RadioManagerClientTrait for RadioManagerMock {
         path_to_audio_file: &str,
     ) -> Result<RadioManagerTrackId, RadioManagerClientError> {
         match path_to_audio_file {
-            "path/to/track02.mp3" => Ok(RadioManagerTrackId(1)),
+            "downloads/path/to/track02.mp3" => Ok(RadioManagerTrackId(1)),
             _ => Err(RadioManagerClientError(Box::new(Error::from(
                 ErrorKind::NotFound,
             )))),
@@ -275,6 +272,7 @@ async fn test_create_track_request() {
         Arc::new(TorrentClientMock),
         Arc::new(MetadataServiceMock),
         Arc::new(RadioManagerMock),
+        "downloads".to_string(),
     );
     let user_id = 1.into();
     let metadata = AudioMetadata {
@@ -284,7 +282,14 @@ async fn test_create_track_request() {
     };
     let channel_id = RadioManagerChannelId(1);
     let request_id = processor
-        .create_request(&user_id, &metadata, &channel_id)
+        .create_request(
+            &user_id,
+            &metadata,
+            &CreateRequestOptions {
+                validate_metadata: true,
+            },
+            &channel_id,
+        )
         .await
         .unwrap();
 
@@ -311,10 +316,11 @@ async fn test_create_track_request() {
 async fn test_processing_track_request() {
     let processor = TrackRequestProcessor::new(
         Arc::from(StateStorageMock::new()),
-        Arc::new(SearchProviderMock),
-        Arc::new(TorrentClientMock),
-        Arc::new(MetadataServiceMock),
-        Arc::new(RadioManagerMock),
+        Arc::from(SearchProviderMock),
+        Arc::from(TorrentClientMock),
+        Arc::from(MetadataServiceMock),
+        Arc::from(RadioManagerMock),
+        "downloads".into(),
     );
     let user_id = UserId(1);
     let metadata = AudioMetadata {
@@ -324,7 +330,14 @@ async fn test_processing_track_request() {
     };
     let channel_id = RadioManagerChannelId(1);
     let request_id = processor
-        .create_request(&user_id, &metadata, &channel_id)
+        .create_request(
+            &user_id,
+            &metadata,
+            &CreateRequestOptions {
+                validate_metadata: true,
+            },
+            &channel_id,
+        )
         .await
         .unwrap();
 

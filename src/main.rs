@@ -3,7 +3,6 @@ use crate::services::{
     MetadataService, RadioManagerClient, TrackRequestProcessor, TransmissionClient,
 };
 use crate::storage::on_disk::OnDiskStorage;
-use crate::storage::InMemoryStorage;
 use actix_rt::signal::unix;
 use actix_web::web::Data;
 use actix_web::{web, App, HttpServer};
@@ -32,7 +31,6 @@ async fn main() -> std::io::Result<()> {
 
     info!("Starting application...");
 
-    // let state_storage = InMemoryStorage::new();
     let state_storage = OnDiskStorage::create(config.state_storage_directory.clone());
     let rutracker_client = search_providers::RuTrackerClient::create(
         &config.rutracker.username,
