@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 use tokio::fs::create_dir_all;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 
 pub(crate) struct OnDiskStorage {
     path: String,

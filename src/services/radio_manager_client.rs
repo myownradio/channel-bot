@@ -3,7 +3,7 @@ use crate::services::track_request_processor::{
 };
 use reqwest::redirect::Policy;
 use reqwest::{multipart, Body, Client, Error};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::path::Path;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
@@ -18,8 +18,6 @@ pub(crate) enum RadioManagerClientError {
     ReqwestError(#[from] Error),
     #[error(transparent)]
     IoError(#[from] std::io::Error),
-    #[error("Incorrect username or password")]
-    UnauthorizedError,
     #[error("Unexpected error: {0}")]
     Unexpected(String),
 }
@@ -72,36 +70,19 @@ impl RadioManagerClient {
             .build()
             .expect("Failed to create HTTP Client");
 
-        #[derive(Serialize)]
-        struct LoginForm {
-            login: String,
-            password: String,
-            save: bool,
-        }
-
-        let form = LoginForm {
-            login: username.to_string(),
-            password: password.to_string(),
-            save: false,
-        };
-
-        #[derive(Deserialize)]
-        struct LoginResult {
-            message: String,
-        }
-
-        let response = client
+        client
             .post(format!("{}api/v2/user/login", endpoint))
-            .form(&form)
+            .form(&serde_json::json!({
+                "login": username.to_string(),
+                "password": password.to_string(),
+                "save": false,
+            }))
             .send()
             .await?
             .error_for_status()?
-            .json::<LoginResult>()
-            .await?;
-
-        if &response.message != "OK" {
-            return Err(RadioManagerClientError::UnauthorizedError);
-        }
+            .json::<RadioManagerResponse<()>>()
+            .await?
+            .error_for_code()?;
 
         Ok(Self {
             endpoint: endpoint.into(),
@@ -126,7 +107,6 @@ impl RadioManagerClient {
         );
 
         let form = multipart::Form::new().part("file", file_part);
-
         let data = self
             .client
             .post(format!("{}api/v2/track/upload", self.endpoint))
@@ -153,25 +133,12 @@ impl RadioManagerClient {
         track_id: &RadioManagerTrackId,
         channel_id: &RadioManagerChannelId,
     ) -> Result<RadioManagerLinkId, RadioManagerClientError> {
-        #[derive(Serialize)]
-        struct AddToChannelForm {
-            stream_id: u64,
-            tracks: String,
-        }
-
-        let form = AddToChannelForm {
-            stream_id: **channel_id,
-            tracks: format!("{}", track_id),
-        };
-
-        #[derive(Deserialize)]
-        struct AddToChannelResult {
-            message: String,
-        }
-
         self.client
             .post(format!("{}api/v2/stream/addTracks", self.endpoint))
-            .form(&form)
+            .form(&serde_json::json!({
+                "stream_id": **channel_id,
+                "tracks": format!("{}", track_id),
+            }))
             .send()
             .await?
             .error_for_status()?

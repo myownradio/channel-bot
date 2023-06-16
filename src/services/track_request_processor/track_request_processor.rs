@@ -2,7 +2,7 @@ use crate::types::UserId;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::io::{Error, ErrorKind};
+use std::io::ErrorKind;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Duration;

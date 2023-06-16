@@ -12,8 +12,6 @@ pub(crate) struct TransmissionClient {
 
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum TransmissionClientError {
-    #[error("Torrent already exists")]
-    AlreadyExists,
     #[error("Torrent not found")]
     NotFound,
     #[error("Erroneous result: {0}")]
