@@ -25,19 +25,31 @@ pub(crate) enum RadioManagerClientError {
 }
 
 #[derive(Debug, Deserialize)]
-struct UploadedTrack {
-    tid: u64,
-}
-
-#[derive(Debug, Deserialize)]
-struct TrackUploadResponseData {
-    tracks: Vec<UploadedTrack>,
-}
-
-#[derive(Debug, Deserialize)]
-struct TrackUploadResponse {
+pub(crate) struct RadioManagerResponse<Data> {
+    code: i64,
     message: String,
-    data: TrackUploadResponseData,
+    data: Data,
+}
+
+impl<Data> RadioManagerResponse<Data> {
+    fn error_for_code(self) -> Result<Data, RadioManagerClientError> {
+        match self.code {
+            1 => Ok(self.data),
+            _ => Err(RadioManagerClientError::Unexpected(self.message)),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct RadioManagerUploadedTrack {
+    pub(crate) tid: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct RadioManagerChannelTrack {
+    pub(crate) album: String,
+    pub(crate) artist: String,
+    pub(crate) title: String,
 }
 
 impl RadioManagerClient {
@@ -107,28 +119,27 @@ impl RadioManagerClient {
 
         let form = multipart::Form::new().part("file", file_part);
 
-        let response = self
+        let data = self
             .client
             .post(format!("{}api/v2/track/upload", self.endpoint))
             .multipart(form)
             .send()
             .await?
             .error_for_status()?
-            .json::<TrackUploadResponse>()
-            .await?;
+            .json::<RadioManagerResponse<Vec<RadioManagerUploadedTrack>>>()
+            .await?
+            .error_for_code()?;
 
-        if response.message != "OK" {
-            return Err(RadioManagerClientError::Unexpected(response.message));
-        }
+        let first_track_id = match data.first().map(|t| t.tid) {
+            Some(track_id) => track_id,
+            None => {
+                return Err(RadioManagerClientError::Unexpected(String::from(
+                    "No tracks were uploaded",
+                )))
+            }
+        };
 
-        Ok(RadioManagerTrackId(
-            response
-                .data
-                .tracks
-                .first()
-                .map(|t| t.tid)
-                .unwrap_or_default(),
-        ))
+        Ok(RadioManagerTrackId(first_track_id))
     }
 
     pub(crate) async fn add_track_to_channel(
@@ -167,5 +178,25 @@ impl RadioManagerClient {
         }
 
         Ok(RadioManagerLinkId("123".into()))
+    }
+
+    pub(crate) async fn get_channel_tracks(
+        &self,
+        channel_id: &RadioManagerChannelId,
+    ) -> Result<Vec<RadioManagerChannelTrack>, RadioManagerClientError> {
+        let response = self
+            .client
+            .get(format!(
+                "{}radio-manager/api/v0/streams/{}/tracks",
+                self.endpoint, channel_id
+            ))
+            .send()
+            .await?
+            .error_for_status()?
+            .json::<RadioManagerResponse<Vec<RadioManagerChannelTrack>>>()
+            .await?
+            .error_for_code()?;
+
+        Ok(response)
     }
 }
