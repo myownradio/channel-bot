@@ -32,6 +32,10 @@ pub(crate) struct TransmissionConfig {
 pub(crate) struct RadioManagerConfig {
     #[serde(rename = "radiomanager_endpoint")]
     pub(crate) endpoint: String,
+    #[serde(rename = "radiomanager_username")]
+    pub(crate) username: String,
+    #[serde(rename = "radiomanager_password")]
+    pub(crate) password: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]

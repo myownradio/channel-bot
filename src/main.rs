@@ -44,7 +44,13 @@ async fn main() -> std::io::Result<()> {
         config.transmission.password.clone(),
         config.transmission.download_directory.clone(),
     );
-    let radio_manager_client = RadioManagerClient::create(&config.radiomanager.endpoint);
+    let radio_manager_client = RadioManagerClient::create(
+        &config.radiomanager.endpoint,
+        &config.radiomanager.username,
+        &config.radiomanager.password,
+    )
+    .await
+    .expect("Unable to initialize RadioManager client");
     let metadata_service = MetadataService::new();
 
     let track_request_processor = {
