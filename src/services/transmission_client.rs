@@ -64,10 +64,8 @@ impl TransmissionClient {
         }
 
         let torrent = match arguments {
-            TorrentAddedOrDuplicate::TorrentAdded(torrent_added) => torrent_added,
-            TorrentAddedOrDuplicate::TorrentDuplicate(_) => {
-                return Err(TransmissionClientError::AlreadyExists);
-            }
+            TorrentAddedOrDuplicate::TorrentAdded(torrent) => torrent,
+            TorrentAddedOrDuplicate::TorrentDuplicate(torrent) => torrent,
         };
 
         Ok(torrent.id.unwrap())

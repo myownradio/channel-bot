@@ -41,6 +41,14 @@ impl<Data> RadioManagerResponse<Data> {
 }
 
 #[derive(Debug, Deserialize)]
+enum RadioManagerUploadedTrackData {
+    Null,
+    Tracks {
+        tracks: Vec<RadioManagerUploadedTrack>,
+    },
+}
+
+#[derive(Debug, Deserialize)]
 struct RadioManagerUploadedTrack {
     pub(crate) tid: u64,
 }
@@ -126,20 +134,18 @@ impl RadioManagerClient {
             .send()
             .await?
             .error_for_status()?
-            .json::<RadioManagerResponse<Vec<RadioManagerUploadedTrack>>>()
+            .json::<RadioManagerResponse<RadioManagerUploadedTrackData>>()
             .await?
             .error_for_code()?;
 
-        let first_track_id = match data.first().map(|t| t.tid) {
-            Some(track_id) => track_id,
-            None => {
-                return Err(RadioManagerClientError::Unexpected(String::from(
-                    "No tracks were uploaded",
-                )))
-            }
-        };
-
-        Ok(RadioManagerTrackId(first_track_id))
+        match data {
+            RadioManagerUploadedTrackData::Tracks { tracks } if tracks.len() > 0 => Ok(
+                RadioManagerTrackId(tracks.first().map(|t| t.tid).unwrap_or_default()),
+            ),
+            _ => Err(RadioManagerClientError::Unexpected(String::from(
+                "No tracks were uploaded",
+            ))),
+        }
     }
 
     pub(crate) async fn add_track_to_channel(
@@ -163,19 +169,15 @@ impl RadioManagerClient {
             message: String,
         }
 
-        let response = self
-            .client
+        self.client
             .post(format!("{}api/v2/stream/addTracks", self.endpoint))
             .form(&form)
             .send()
             .await?
             .error_for_status()?
-            .json::<AddToChannelResult>()
-            .await?;
-
-        if response.message != "OK" {
-            return Err(RadioManagerClientError::Unexpected(response.message));
-        }
+            .json::<RadioManagerResponse<()>>()
+            .await?
+            .error_for_code()?;
 
         Ok(RadioManagerLinkId("123".into()))
     }
