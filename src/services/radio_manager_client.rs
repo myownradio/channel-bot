@@ -179,16 +179,32 @@ impl RadioManagerClient {
     pub(crate) async fn get_tracks(
         &self,
     ) -> Result<Vec<RadioManagerTrack>, RadioManagerClientError> {
-        let response = self
-            .client
-            .get(format!("{}radio-manager/api/v0/tracks/", self.endpoint))
-            .send()
-            .await?
-            .error_for_status()?
-            .json::<RadioManagerResponse<Vec<RadioManagerTrack>>>()
-            .await?
-            .error_for_code()?;
+        let mut tracks = vec![];
 
-        Ok(response)
+        let mut offset = 0;
+        loop {
+            let mut last_result = self
+                .client
+                .get(format!("{}radio-manager/api/v0/tracks/", self.endpoint))
+                .query(&serde_json::json!({
+                    "offset": offset,
+                }))
+                .send()
+                .await?
+                .error_for_status()?
+                .json::<RadioManagerResponse<Vec<RadioManagerTrack>>>()
+                .await?
+                .error_for_code()?;
+
+            if last_result.is_empty() {
+                break;
+            }
+
+            offset += last_result.len();
+
+            tracks.append(&mut last_result);
+        }
+
+        Ok(tracks)
     }
 }
