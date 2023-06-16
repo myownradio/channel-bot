@@ -14,6 +14,7 @@ pub(crate) struct MakeTrackRequestData {
     metadata: AudioMetadata,
     #[serde(default)]
     validate_metadata: bool,
+    target_channel_id: RadioManagerChannelId,
 }
 
 pub(crate) async fn make_track_request(
@@ -21,8 +22,7 @@ pub(crate) async fn make_track_request(
     params: web::Json<MakeTrackRequestData>,
 ) -> impl Responder {
     let query = params.into_inner();
-    let user_id = UserId(1);
-    let channel_id = RadioManagerChannelId(407);
+    let user_id = UserId(1); // Not used yet
 
     let request_id = match track_request_processor
         .create_request(
@@ -31,7 +31,7 @@ pub(crate) async fn make_track_request(
             &CreateRequestOptions {
                 validate_metadata: query.validate_metadata,
             },
-            &channel_id,
+            &query.target_channel_id,
         )
         .await
     {
