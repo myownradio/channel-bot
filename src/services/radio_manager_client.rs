@@ -160,20 +160,36 @@ impl RadioManagerClient {
         &self,
         channel_id: &RadioManagerChannelId,
     ) -> Result<Vec<RadioManagerChannelTrack>, RadioManagerClientError> {
-        let response = self
-            .client
-            .get(format!(
-                "{}radio-manager/api/v0/streams/{}/tracks",
-                self.endpoint, channel_id
-            ))
-            .send()
-            .await?
-            .error_for_status()?
-            .json::<RadioManagerResponse<Vec<RadioManagerChannelTrack>>>()
-            .await?
-            .error_for_code()?;
+        let mut tracks = vec![];
 
-        Ok(response)
+        let mut offset = 0;
+        loop {
+            let mut data = self
+                .client
+                .get(format!(
+                    "{}radio-manager/api/v0/streams/{}/tracks",
+                    self.endpoint, channel_id
+                ))
+                .query(&serde_json::json!({
+                    "offset": offset,
+                }))
+                .send()
+                .await?
+                .error_for_status()?
+                .json::<RadioManagerResponse<Vec<RadioManagerChannelTrack>>>()
+                .await?
+                .error_for_code()?;
+
+            if data.is_empty() {
+                break;
+            }
+
+            offset += data.len();
+
+            tracks.append(&mut data);
+        }
+
+        Ok(tracks)
     }
 
     pub(crate) async fn get_tracks(
@@ -183,7 +199,7 @@ impl RadioManagerClient {
 
         let mut offset = 0;
         loop {
-            let mut last_result = self
+            let mut data = self
                 .client
                 .get(format!("{}radio-manager/api/v0/tracks/", self.endpoint))
                 .query(&serde_json::json!({
@@ -196,13 +212,13 @@ impl RadioManagerClient {
                 .await?
                 .error_for_code()?;
 
-            if last_result.is_empty() {
+            if data.is_empty() {
                 break;
             }
 
-            offset += last_result.len();
+            offset += data.len();
 
-            tracks.append(&mut last_result);
+            tracks.append(&mut data);
         }
 
         Ok(tracks)
