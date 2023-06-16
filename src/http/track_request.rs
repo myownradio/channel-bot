@@ -22,7 +22,7 @@ pub(crate) async fn make_track_request(
 ) -> impl Responder {
     let query = params.into_inner();
     let user_id = UserId(1);
-    let channel_id = RadioManagerChannelId(1);
+    let channel_id = RadioManagerChannelId(407);
 
     let request_id = match track_request_processor
         .create_request(
