@@ -58,6 +58,13 @@ pub(crate) struct RadioManagerChannelTrack {
     pub(crate) title: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub(crate) struct RadioManagerTrack {
+    pub(crate) album: String,
+    pub(crate) artist: String,
+    pub(crate) title: String,
+}
+
 impl RadioManagerClient {
     pub(crate) async fn create(
         endpoint: &str,
@@ -163,6 +170,22 @@ impl RadioManagerClient {
             .await?
             .error_for_status()?
             .json::<RadioManagerResponse<Vec<RadioManagerChannelTrack>>>()
+            .await?
+            .error_for_code()?;
+
+        Ok(response)
+    }
+
+    pub(crate) async fn get_tracks(
+        &self,
+    ) -> Result<Vec<RadioManagerTrack>, RadioManagerClientError> {
+        let response = self
+            .client
+            .get(format!("{}radio-manager/api/v0/tracks/", self.endpoint))
+            .send()
+            .await?
+            .error_for_status()?
+            .json::<RadioManagerResponse<Vec<RadioManagerTrack>>>()
             .await?
             .error_for_code()?;
 
