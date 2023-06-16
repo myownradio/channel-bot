@@ -214,7 +214,7 @@ impl MetadataServiceTrait for MetadataService {
 impl RadioManagerClientTrait for RadioManagerClient {
     async fn upload_audio_track(
         &self,
-        user_id: &UserId,
+        _user_id: &UserId,
         path_to_audio_file: &str,
     ) -> Result<RadioManagerTrackId, RadioManagerClientError> {
         let track_id = self
@@ -222,15 +222,20 @@ impl RadioManagerClientTrait for RadioManagerClient {
             .await
             .map_err(|error| RadioManagerClientError(Box::new(error)))?;
 
-        todo!()
+        Ok(track_id)
     }
 
     async fn add_track_to_channel_playlist(
         &self,
-        user_id: &UserId,
+        _user_id: &UserId,
         track_id: &RadioManagerTrackId,
         channel_id: &RadioManagerChannelId,
     ) -> Result<RadioManagerLinkId, RadioManagerClientError> {
-        todo!()
+        let link_id = self
+            .add_track_to_channel(track_id, channel_id)
+            .await
+            .map_err(|error| RadioManagerClientError(Box::new(error)))?;
+
+        Ok(link_id)
     }
 }

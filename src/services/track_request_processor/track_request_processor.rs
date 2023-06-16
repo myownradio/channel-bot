@@ -36,6 +36,14 @@ pub(crate) struct AudioMetadata {
 #[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize, Deserialize)]
 pub(crate) struct RadioManagerChannelId(pub(crate) u64);
 
+impl Deref for RadioManagerChannelId {
+    type Target = u64;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl std::fmt::Display for RadioManagerChannelId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)

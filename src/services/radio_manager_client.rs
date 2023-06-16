@@ -1,4 +1,6 @@
-use crate::services::track_request_processor::RadioManagerTrackId;
+use crate::services::track_request_processor::{
+    RadioManagerChannelId, RadioManagerLinkId, RadioManagerTrackId,
+};
 use reqwest::redirect::Policy;
 use reqwest::{multipart, Body, Client, Error};
 use serde::{Deserialize, Serialize};
@@ -18,10 +20,14 @@ pub(crate) enum RadioManagerClientError {
     IoError(#[from] std::io::Error),
     #[error("Incorrect username or password")]
     UnauthorizedError,
+    #[error("Unexpected error: {0}")]
+    Unexpected(String),
 }
 
 #[derive(Debug, Deserialize)]
-struct UploadedTrack {}
+struct UploadedTrack {
+    tid: u64,
+}
 
 #[derive(Debug, Deserialize)]
 struct TrackUploadResponseData {
@@ -111,8 +117,55 @@ impl RadioManagerClient {
             .json::<TrackUploadResponse>()
             .await?;
 
-        eprintln!("res: {:?}", response);
+        if response.message != "OK" {
+            return Err(RadioManagerClientError::Unexpected(response.message));
+        }
 
-        Ok(RadioManagerTrackId(0))
+        Ok(RadioManagerTrackId(
+            response
+                .data
+                .tracks
+                .first()
+                .map(|t| t.tid)
+                .unwrap_or_default(),
+        ))
+    }
+
+    pub(crate) async fn add_track_to_channel(
+        &self,
+        track_id: &RadioManagerTrackId,
+        channel_id: &RadioManagerChannelId,
+    ) -> Result<RadioManagerLinkId, RadioManagerClientError> {
+        #[derive(Serialize)]
+        struct AddToChannelForm {
+            stream_id: u64,
+            tracks: String,
+        }
+
+        let form = AddToChannelForm {
+            stream_id: **channel_id,
+            tracks: format!("{}", track_id),
+        };
+
+        #[derive(Deserialize)]
+        struct AddToChannelResult {
+            message: String,
+        }
+
+        let response = self
+            .client
+            .post(format!("{}api/v2/stream/addTracks", self.endpoint))
+            .form(&form)
+            .send()
+            .await?
+            .error_for_status()?
+            .json::<AddToChannelResult>()
+            .await?;
+
+        if response.message != "OK" {
+            return Err(RadioManagerClientError::Unexpected(response.message));
+        }
+
+        Ok(RadioManagerLinkId("123".into()))
     }
 }
