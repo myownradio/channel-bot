@@ -60,6 +60,7 @@ async fn main() -> std::io::Result<()> {
             Arc::from(transmission_client),
             Arc::from(metadata_service),
             Arc::from(radio_manager_client),
+            config.download_directory.clone(),
         ))
     };
 

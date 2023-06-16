@@ -121,11 +121,10 @@ impl StateStorageTrait for InMemoryStorage {
 impl TorrentClientTrait for TransmissionClient {
     async fn add_torrent(
         &self,
-        path_to_download: &str,
         torrent_file_data: Vec<u8>,
     ) -> Result<TorrentId, TorrentClientError> {
         let torrent_id = self
-            .add(path_to_download, torrent_file_data)
+            .add(torrent_file_data)
             .await
             .map_err(|err| TorrentClientError(Box::from(err)))?;
 
@@ -137,7 +136,6 @@ impl TorrentClientTrait for TransmissionClient {
             .get(torrent_id)
             .await
             .map_err(|err| TorrentClientError(Box::from(err)))?;
-        let download_dir = torrent.download_dir.clone().unwrap_or_default();
 
         Ok(Torrent {
             status: match torrent.status {
@@ -148,7 +146,7 @@ impl TorrentClientTrait for TransmissionClient {
                 .files
                 .unwrap_or_default()
                 .into_iter()
-                .map(|f| format!("{}/{}", download_dir, f.name))
+                .map(|f| f.name)
                 .collect(),
         })
     }
@@ -219,6 +217,11 @@ impl RadioManagerClientTrait for RadioManagerClient {
         user_id: &UserId,
         path_to_audio_file: &str,
     ) -> Result<RadioManagerTrackId, RadioManagerClientError> {
+        let track_id = self
+            .upload_track(path_to_audio_file)
+            .await
+            .map_err(|error| RadioManagerClientError(Box::new(error)))?;
+
         todo!()
     }
 

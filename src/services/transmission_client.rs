@@ -45,7 +45,7 @@ impl TransmissionClient {
         }
     }
 
-    pub(crate) async fn add(&self, path: &str, torrent_file_content: Vec<u8>) -> Result<i64> {
+    pub(crate) async fn add(&self, torrent_file_content: Vec<u8>) -> Result<i64> {
         let metainfo = STANDARD.encode(torrent_file_content);
 
         let RpcResponse { arguments, result } = self
@@ -54,7 +54,7 @@ impl TransmissionClient {
             .await
             .torrent_add(TorrentAddArgs {
                 metainfo: Some(metainfo.clone()),
-                download_dir: Some(format!("{}/{}/", self.download_dir.clone(), path)),
+                download_dir: Some(self.download_dir.clone()),
                 ..TorrentAddArgs::default()
             })
             .await?;

@@ -272,7 +272,6 @@ impl std::fmt::Display for SearchProviderError {
 pub(crate) trait TorrentClientTrait {
     async fn add_torrent(
         &self,
-        path_to_download: &str,
         torrent_file_data: Vec<u8>,
     ) -> Result<TorrentId, TorrentClientError>;
     async fn get_torrent(&self, torrent_id: &TorrentId) -> Result<Torrent, TorrentClientError>;
@@ -335,6 +334,7 @@ pub(crate) struct TrackRequestProcessor {
     torrent_client: Arc<dyn TorrentClientTrait + Send + Sync + 'static>,
     metadata_service: Arc<dyn MetadataServiceTrait + Send + Sync + 'static>,
     radio_manager_client: Arc<dyn RadioManagerClientTrait + Send + Sync + 'static>,
+    download_directory: String,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -369,6 +369,7 @@ impl TrackRequestProcessor {
         torrent_client: Arc<dyn TorrentClientTrait + Send + Sync + 'static>,
         metadata_service: Arc<dyn MetadataServiceTrait + Send + Sync + 'static>,
         radio_manager_client: Arc<dyn RadioManagerClientTrait + Send + Sync + 'static>,
+        download_directory: String,
     ) -> Self {
         Self {
             state_storage,
@@ -376,6 +377,7 @@ impl TrackRequestProcessor {
             torrent_client,
             metadata_service,
             radio_manager_client,
+            download_directory,
         }
     }
 
@@ -423,7 +425,7 @@ impl TrackRequestProcessor {
             self.state_storage
                 .update_state(user_id, request_id, &state)
                 .await?;
-            actix_rt::time::sleep(Duration::from_secs(10)).await;
+            actix_rt::time::sleep(Duration::from_secs(1)).await;
         }
 
         info!("Track processing finished");
@@ -444,7 +446,7 @@ impl TrackRequestProcessor {
     ) -> Result<(), ProcessRequestError> {
         let step = state.get_step();
 
-        debug!(?step, "Running processing step");
+        debug!("Running processing step: {:?}", step);
 
         match step {
             TrackRequestProcessingStep::SearchAudioAlbum => {
@@ -479,7 +481,10 @@ impl TrackRequestProcessor {
         state: &mut TrackRequestProcessingState,
     ) -> Result<(), ProcessRequestError> {
         let query = format!("{} - {}", ctx.metadata.artist, ctx.metadata.album);
+        debug!("Querying search engine: {}", query);
+
         let results = self.search_provider.search_music(&query).await?;
+        debug!("Found {} results", results.len());
 
         let tried_topics_set = state.tried_topics.iter().collect::<HashSet<_>>();
         let topic = match results
@@ -519,6 +524,8 @@ impl TrackRequestProcessor {
 
         let torrent_data = self.search_provider.download_torrent(&download_id).await?;
 
+        debug!("Torrent data size: {} bytes", torrent_data.len());
+
         state.current_torrent_data.replace(torrent_data);
 
         Ok(())
@@ -536,13 +543,8 @@ impl TrackRequestProcessor {
             .take()
             .expect("current_torrent_data should be defined");
 
-        let size = torrent_data.len();
-        debug!("Adding torrent to the torrent client... (size = {})", size);
-
-        let torrent_id = self
-            .torrent_client
-            .add_torrent("tmp/downloads", torrent_data)
-            .await?;
+        debug!("Adding torrent to the torrent client...");
+        let torrent_id = self.torrent_client.add_torrent(torrent_data).await?;
 
         debug!(%torrent_id, "Started downloading the torrent");
 
@@ -569,7 +571,7 @@ impl TrackRequestProcessor {
 
         if !matches!(torrent.status, TorrentStatus::Complete) {
             // Still downloading
-            actix_rt::time::sleep(Duration::from_secs(10)).await;
+            actix_rt::time::sleep(Duration::from_secs(5)).await;
 
             return Ok(());
         }
@@ -579,6 +581,7 @@ impl TrackRequestProcessor {
         for file in torrent.files {
             if ctx.options.validate_metadata {
                 debug!("Checking metadata of {} file...", file);
+
                 let metadata = match self.metadata_service.get_audio_metadata(&file).await {
                     Ok(Some(metadata)) => metadata,
                     _ => continue,
@@ -592,7 +595,7 @@ impl TrackRequestProcessor {
                     return Ok(());
                 }
             } else {
-                debug!(file, "Checking file name...");
+                debug!(file, "Checking file...");
 
                 if file.contains(&ctx.metadata.title) {
                     info!("Found audio file that matches the requested audio track!");
@@ -622,11 +625,16 @@ impl TrackRequestProcessor {
             .take()
             .expect("path_to_downloaded_file should be defined");
 
-        info!("Uploading requested audio track to radio manager...");
+        let full_path_to_file = format!("{}/{}", self.download_directory, path);
+
+        info!(
+            full_path_to_file,
+            "Uploading audio track to radio manager..."
+        );
 
         let track_id = self
             .radio_manager_client
-            .upload_audio_track(user_id, &path)
+            .upload_audio_track(user_id, &full_path_to_file)
             .await?;
 
         state.radio_manager_track_id.replace(track_id);

@@ -44,6 +44,7 @@ pub(crate) struct Config {
     pub(crate) bind_address: String,
     #[serde(default = "default_shutdown_timeout")]
     pub(crate) shutdown_timeout: u64,
+    pub(crate) download_directory: String,
     #[serde(flatten)]
     pub(crate) rutracker: RuTrackerCredentials,
     #[serde(flatten)]
