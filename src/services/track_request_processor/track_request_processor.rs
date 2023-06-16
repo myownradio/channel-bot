@@ -244,7 +244,7 @@ pub(crate) trait StateStorageTrait {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) struct StateStorageError(Box<dyn std::error::Error>);
+pub(crate) struct StateStorageError(pub(crate) Box<dyn std::error::Error>);
 
 impl StateStorageError {
     pub(crate) fn not_found() -> Self {
@@ -595,8 +595,14 @@ impl TrackRequestProcessor {
                     _ => continue,
                 };
 
-                if metadata.artist.starts_with(&ctx.metadata.artist)
-                    && metadata.title.starts_with(&ctx.metadata.title)
+                if metadata
+                    .artist
+                    .to_lowercase()
+                    .starts_with(&ctx.metadata.artist.to_lowercase())
+                    && metadata
+                        .title
+                        .to_lowercase()
+                        .starts_with(&ctx.metadata.title.to_lowercase())
                 {
                     info!("Found audio file that matches the requested audio track!");
                     state.path_to_downloaded_file.replace(file);
@@ -605,7 +611,10 @@ impl TrackRequestProcessor {
             } else {
                 debug!(file, "Checking file...");
 
-                if file.contains(&ctx.metadata.title) {
+                if file
+                    .to_lowercase()
+                    .contains(&ctx.metadata.title.to_lowercase())
+                {
                     info!("Found audio file that matches the requested audio track!");
                     state.path_to_downloaded_file.replace(file);
                     return Ok(());

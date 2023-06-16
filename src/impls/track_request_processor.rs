@@ -6,7 +6,7 @@ use crate::services::track_request_processor::{
     TrackRequestProcessingContext, TrackRequestProcessingState,
 };
 use crate::services::{MetadataService, RadioManagerClient, TransmissionClient};
-use crate::storage::InMemoryStorage;
+use crate::storage::on_disk::OnDiskStorage;
 use crate::types::UserId;
 use async_trait::async_trait;
 use audiotags::Tag;
@@ -14,7 +14,7 @@ use search_providers::RuTrackerClient;
 use tracing::error;
 
 #[async_trait]
-impl StateStorageTrait for InMemoryStorage {
+impl StateStorageTrait for OnDiskStorage {
     async fn create_state(
         &self,
         user_id: &UserId,
@@ -25,7 +25,9 @@ impl StateStorageTrait for InMemoryStorage {
         let key = format!("{}", request_id);
         let state_str = serde_json::to_string(&state).expect("Unable to serialize state");
 
-        self.save(&prefix, &key, &state_str);
+        self.save(&prefix, &key, &state_str)
+            .await
+            .map_err(|error| StateStorageError(Box::new(error)))?;
 
         Ok(())
     }
@@ -40,7 +42,9 @@ impl StateStorageTrait for InMemoryStorage {
         let key = format!("{}", request_id);
         let state_str = serde_json::to_string(&ctx).expect("Unable to serialize state");
 
-        self.save(&prefix, &key, &state_str);
+        self.save(&prefix, &key, &state_str)
+            .await
+            .map_err(|error| StateStorageError(Box::new(error)))?;
 
         Ok(())
     }
@@ -55,7 +59,9 @@ impl StateStorageTrait for InMemoryStorage {
         let key = format!("{}", request_id);
         let state_str = serde_json::to_string(&state).expect("Unable to serialize state");
 
-        self.save(&prefix, &key, &state_str);
+        self.save(&prefix, &key, &state_str)
+            .await
+            .map_err(|error| StateStorageError(Box::new(error)))?;
 
         Ok(())
     }
@@ -67,7 +73,11 @@ impl StateStorageTrait for InMemoryStorage {
     ) -> Result<TrackRequestProcessingState, StateStorageError> {
         let prefix = format!("{}-state", user_id);
         let key = format!("{}", request_id);
-        let value = match self.get(&prefix, &key) {
+        let value = match self
+            .get(&prefix, &key)
+            .await
+            .map_err(|error| StateStorageError(Box::new(error)))?
+        {
             Some(value) => serde_json::from_str(&value).expect("Unable to deserialize state"),
             None => return Err(StateStorageError::not_found()),
         };
@@ -82,7 +92,11 @@ impl StateStorageTrait for InMemoryStorage {
     ) -> Result<TrackRequestProcessingContext, StateStorageError> {
         let prefix = format!("{}-ctx", user_id);
         let key = format!("{}", request_id);
-        let value = match self.get(&prefix, &key) {
+        let value = match self
+            .get(&prefix, &key)
+            .await
+            .map_err(|error| StateStorageError(Box::new(error)))?
+        {
             Some(value) => serde_json::from_str(&value).expect("Unable to deserialize state"),
             None => return Err(StateStorageError::not_found()),
         };
@@ -98,7 +112,9 @@ impl StateStorageTrait for InMemoryStorage {
         let prefix = format!("{}-state", user_id);
         let key = format!("{}", request_id);
 
-        self.delete(&prefix, &key);
+        self.delete(&prefix, &key)
+            .await
+            .map_err(|error| StateStorageError(Box::new(error)))?;
 
         Ok(())
     }
@@ -111,7 +127,9 @@ impl StateStorageTrait for InMemoryStorage {
         let prefix = format!("{}-ctx", user_id);
         let key = format!("{}", request_id);
 
-        self.delete(&prefix, &key);
+        self.delete(&prefix, &key)
+            .await
+            .map_err(|error| StateStorageError(Box::new(error)))?;
 
         Ok(())
     }
