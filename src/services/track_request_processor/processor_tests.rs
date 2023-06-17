@@ -7,7 +7,7 @@ use super::track_request_processor::{
     TrackRequestProcessor,
 };
 use crate::services::track_request_processor::{
-    CreateRequestOptions, TrackRequestProcessingStatus,
+    CreateRequestOptions, RadioManagerChannelTrack, TrackRequestProcessingStatus,
 };
 use crate::types::UserId;
 use async_trait::async_trait;
@@ -179,6 +179,13 @@ impl StateStorageTrait for StateStorageMock {
 
         Ok(())
     }
+
+    async fn get_all_statuses(
+        &self,
+        _user_id: &UserId,
+    ) -> Result<HashMap<RequestId, TrackRequestProcessingStatus>, StateStorageError> {
+        Ok(HashMap::new())
+    }
 }
 
 struct SearchProviderMock;
@@ -285,11 +292,18 @@ impl RadioManagerClientTrait for RadioManagerMock {
 
     async fn add_track_to_channel_playlist(
         &self,
-        user_id: &UserId,
-        track_id: &RadioManagerTrackId,
-        channel_id: &RadioManagerChannelId,
+        _user_id: &UserId,
+        _track_id: &RadioManagerTrackId,
+        _channel_id: &RadioManagerChannelId,
     ) -> Result<RadioManagerLinkId, RadioManagerClientError> {
         Ok(RadioManagerLinkId("link".into()))
+    }
+
+    async fn get_channel_tracks(
+        &self,
+        _channel_id: &RadioManagerChannelId,
+    ) -> Result<Vec<RadioManagerChannelTrack>, RadioManagerClientError> {
+        Ok(vec![])
     }
 }
 

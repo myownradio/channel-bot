@@ -209,6 +209,13 @@ pub(crate) enum TrackRequestProcessingStatus {
     Finished,
 }
 
+#[derive(Debug, Deserialize)]
+pub(crate) struct RadioManagerChannelTrack {
+    pub(crate) album: String,
+    pub(crate) artist: String,
+    pub(crate) title: String,
+}
+
 #[async_trait]
 pub(crate) trait StateStorageTrait {
     async fn create_state(
@@ -348,6 +355,10 @@ pub(crate) trait RadioManagerClientTrait {
         track_id: &RadioManagerTrackId,
         channel_id: &RadioManagerChannelId,
     ) -> Result<RadioManagerLinkId, RadioManagerClientError>;
+    async fn get_channel_tracks(
+        &self,
+        channel_id: &RadioManagerChannelId,
+    ) -> Result<Vec<RadioManagerChannelTrack>, RadioManagerClientError>;
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -460,6 +471,8 @@ impl TrackRequestProcessor {
                 &TrackRequestProcessingStatus::Processing,
             )
             .await?;
+
+        // TODO Check if the file already exists in library.
 
         while !matches!(state.get_step(), TrackRequestProcessingStep::Finish) {
             if let Err(error) = self

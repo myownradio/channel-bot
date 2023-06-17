@@ -1,11 +1,15 @@
 use crate::services::track_request_processor::{
     AudioMetadata, DownloadId, MetadataServiceError, MetadataServiceTrait, RadioManagerChannelId,
-    RadioManagerClientError, RadioManagerClientTrait, RadioManagerLinkId, RadioManagerTrackId,
-    RequestId, SearchProviderError, SearchProviderTrait, StateStorageError, StateStorageTrait,
-    TopicData, TopicId, Torrent, TorrentClientError, TorrentClientTrait, TorrentId, TorrentStatus,
-    TrackRequestProcessingContext, TrackRequestProcessingState, TrackRequestProcessingStatus,
+    RadioManagerChannelTrack, RadioManagerClientError, RadioManagerClientTrait, RadioManagerLinkId,
+    RadioManagerTrackId, RequestId, SearchProviderError, SearchProviderTrait, StateStorageError,
+    StateStorageTrait, TopicData, TopicId, Torrent, TorrentClientError, TorrentClientTrait,
+    TorrentId, TorrentStatus, TrackRequestProcessingContext, TrackRequestProcessingState,
+    TrackRequestProcessingStatus,
 };
-use crate::services::{MetadataService, RadioManagerClient, TransmissionClient};
+use crate::services::{
+    radio_manager_client, track_request_processor, MetadataService, RadioManagerClient,
+    TransmissionClient,
+};
 use crate::storage::on_disk::OnDiskStorage;
 use crate::types::UserId;
 use async_trait::async_trait;
@@ -288,6 +292,16 @@ impl MetadataServiceTrait for MetadataService {
     }
 }
 
+impl Into<RadioManagerChannelTrack> for radio_manager_client::RadioManagerChannelTrack {
+    fn into(self) -> RadioManagerChannelTrack {
+        RadioManagerChannelTrack {
+            title: self.title,
+            album: self.album,
+            artist: self.artist,
+        }
+    }
+}
+
 #[async_trait]
 impl RadioManagerClientTrait for RadioManagerClient {
     async fn upload_audio_track(
@@ -315,5 +329,16 @@ impl RadioManagerClientTrait for RadioManagerClient {
             .map_err(|error| RadioManagerClientError(Box::new(error)))?;
 
         Ok(link_id)
+    }
+
+    async fn get_channel_tracks(
+        &self,
+        channel_id: &RadioManagerChannelId,
+    ) -> Result<Vec<RadioManagerChannelTrack>, RadioManagerClientError> {
+        let tracks = RadioManagerClient::get_channel_tracks(self, channel_id)
+            .await
+            .map_err(|error| RadioManagerClientError(Box::new(error)))?;
+
+        Ok(tracks.into_iter().map(Into::into).collect())
     }
 }
