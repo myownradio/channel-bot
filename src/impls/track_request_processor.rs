@@ -13,7 +13,6 @@ use audiotags::Tag;
 use search_providers::RuTrackerClient;
 use std::collections::HashMap;
 use tracing::error;
-use transmission_rpc::types::Id::Hash;
 use uuid::Uuid;
 
 #[async_trait]
