@@ -1,7 +1,7 @@
 use crate::types::UserId;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::ErrorKind;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -260,6 +260,10 @@ pub(crate) trait StateStorageTrait {
         user_id: &UserId,
         request_id: &RequestId,
     ) -> Result<(), StateStorageError>;
+    async fn get_all_statuses(
+        &self,
+        user_id: &UserId,
+    ) -> Result<HashMap<RequestId, TrackRequestProcessingStatus>, StateStorageError>;
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -502,6 +506,15 @@ impl TrackRequestProcessor {
             .await?;
 
         Ok(())
+    }
+
+    pub(crate) async fn get_processing_requests(
+        &self,
+        user_id: &UserId,
+    ) -> Result<HashMap<RequestId, TrackRequestProcessingStatus>, ProcessRequestError> {
+        let statuses = self.state_storage.get_all_statuses(user_id).await?;
+
+        Ok(statuses)
     }
 
     async fn handle_next_step(

@@ -11,7 +11,10 @@ use crate::types::UserId;
 use async_trait::async_trait;
 use audiotags::Tag;
 use search_providers::RuTrackerClient;
+use std::collections::HashMap;
 use tracing::error;
+use transmission_rpc::types::Id::Hash;
+use uuid::Uuid;
 
 #[async_trait]
 impl StateStorageTrait for OnDiskStorage {
@@ -164,6 +167,32 @@ impl StateStorageTrait for OnDiskStorage {
             .map_err(|error| StateStorageError(Box::new(error)))?;
 
         Ok(())
+    }
+
+    async fn get_all_statuses(
+        &self,
+        user_id: &UserId,
+    ) -> Result<HashMap<RequestId, TrackRequestProcessingStatus>, StateStorageError> {
+        let prefix = format!("{}-status", user_id);
+        let values = self
+            .get_all(&prefix)
+            .await
+            .map_err(|error| StateStorageError(Box::new(error)))?;
+
+        let mut results = HashMap::new();
+
+        for (key, value) in values {
+            let request_id = RequestId(
+                key.parse::<Uuid>()
+                    .map_err(|error| StateStorageError(Box::new(error)))?,
+            );
+            let status =
+                serde_json::from_str(&value).map_err(|error| StateStorageError(Box::new(error)))?;
+
+            results.insert(request_id, status);
+        }
+
+        Ok(results)
     }
 }
 
