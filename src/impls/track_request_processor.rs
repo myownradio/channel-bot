@@ -42,7 +42,7 @@ impl StateStorageTrait for OnDiskStorage {
     ) -> Result<(), StateStorageError> {
         let prefix = format!("{}-ctx", user_id);
         let key = format!("{}", request_id);
-        let state_str = serde_json::to_string(&ctx).expect("Unable to serialize state");
+        let state_str = serde_json::to_string(&ctx).expect("Unable to serialize context");
 
         self.save(&prefix, &key, &state_str)
             .await
@@ -116,7 +116,7 @@ impl StateStorageTrait for OnDiskStorage {
             .await
             .map_err(|error| StateStorageError(Box::new(error)))?
         {
-            Some(value) => serde_json::from_str(&value).expect("Unable to deserialize state"),
+            Some(value) => serde_json::from_str(&value).expect("Unable to deserialize context"),
             None => return Err(StateStorageError::not_found()),
         };
 
