@@ -87,7 +87,7 @@ impl RadioManagerClient {
             .send()
             .await?
             .error_for_status()?
-            .json::<RadioManagerResponse<()>>()
+            .json::<RadioManagerResponse<serde_json::Value>>()
             .await?
             .error_for_code()?;
 

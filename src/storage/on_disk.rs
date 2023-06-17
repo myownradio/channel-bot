@@ -34,7 +34,11 @@ impl OnDiskStorage {
 
         let mut map = HashMap::new();
 
-        let mut dir_reader = tokio::fs::read_dir(&path).await?;
+        let mut dir_reader = match tokio::fs::read_dir(&path).await {
+            Ok(reader) => reader,
+            Err(_) => return Ok(HashMap::new()),
+        };
+
         while let Some(dir) = dir_reader.next_entry().await? {
             let filename = dir.file_name().to_str().unwrap_or_default().to_string();
             let content = tokio::fs::read_to_string(format!("{}/{}", path, filename)).await?;
@@ -59,6 +63,7 @@ impl OnDiskStorage {
         let mut file = tokio::fs::OpenOptions::new()
             .create(true)
             .write(true)
+            .truncate(true)
             .open(path)
             .await?;
 
