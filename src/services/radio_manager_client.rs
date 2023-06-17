@@ -26,13 +26,13 @@ pub(crate) enum RadioManagerClientError {
 pub(crate) struct RadioManagerResponse<Data> {
     code: i64,
     message: String,
-    data: Data,
+    data: Option<Data>,
 }
 
 impl<Data> RadioManagerResponse<Data> {
     fn error_for_code(self) -> Result<Data, RadioManagerClientError> {
-        match self.code {
-            1 => Ok(self.data),
+        match (self.code, self.data) {
+            (1, Some(data)) => Ok(data),
             _ => Err(RadioManagerClientError::Unexpected(self.message)),
         }
     }
