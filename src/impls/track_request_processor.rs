@@ -3,7 +3,7 @@ use crate::services::track_request_processor::{
     RadioManagerClientError, RadioManagerClientTrait, RadioManagerLinkId, RadioManagerTrackId,
     RequestId, SearchProviderError, SearchProviderTrait, StateStorageError, StateStorageTrait,
     TopicData, TopicId, Torrent, TorrentClientError, TorrentClientTrait, TorrentId, TorrentStatus,
-    TrackRequestProcessingContext, TrackRequestProcessingState,
+    TrackRequestProcessingContext, TrackRequestProcessingState, TrackRequestProcessingStatus,
 };
 use crate::services::{MetadataService, RadioManagerClient, TransmissionClient};
 use crate::storage::on_disk::OnDiskStorage;
@@ -58,6 +58,23 @@ impl StateStorageTrait for OnDiskStorage {
         let prefix = format!("{}-state", user_id);
         let key = format!("{}", request_id);
         let state_str = serde_json::to_string(&state).expect("Unable to serialize state");
+
+        self.save(&prefix, &key, &state_str)
+            .await
+            .map_err(|error| StateStorageError(Box::new(error)))?;
+
+        Ok(())
+    }
+
+    async fn update_status(
+        &self,
+        user_id: &UserId,
+        request_id: &RequestId,
+        state: &TrackRequestProcessingStatus,
+    ) -> Result<(), StateStorageError> {
+        let prefix = format!("{}-status", user_id);
+        let key = format!("{}", request_id);
+        let state_str = serde_json::to_string(&state).expect("Unable to serialize status");
 
         self.save(&prefix, &key, &state_str)
             .await
@@ -125,6 +142,21 @@ impl StateStorageTrait for OnDiskStorage {
         request_id: &RequestId,
     ) -> Result<(), StateStorageError> {
         let prefix = format!("{}-ctx", user_id);
+        let key = format!("{}", request_id);
+
+        self.delete(&prefix, &key)
+            .await
+            .map_err(|error| StateStorageError(Box::new(error)))?;
+
+        Ok(())
+    }
+
+    async fn delete_status(
+        &self,
+        user_id: &UserId,
+        request_id: &RequestId,
+    ) -> Result<(), StateStorageError> {
+        let prefix = format!("{}-status", user_id);
         let key = format!("{}", request_id);
 
         self.delete(&prefix, &key)

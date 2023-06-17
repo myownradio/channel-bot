@@ -6,7 +6,9 @@ use super::track_request_processor::{
     TrackRequestProcessingContext, TrackRequestProcessingState, TrackRequestProcessingStep,
     TrackRequestProcessor,
 };
-use crate::services::track_request_processor::CreateRequestOptions;
+use crate::services::track_request_processor::{
+    CreateRequestOptions, TrackRequestProcessingStatus,
+};
 use crate::types::UserId;
 use async_trait::async_trait;
 use std::collections::hash_map::Entry;
@@ -17,6 +19,7 @@ use std::sync::{Arc, Mutex};
 struct StateStorageMock {
     context_storage: Mutex<HashMap<UserId, HashMap<RequestId, TrackRequestProcessingContext>>>,
     state_storage: Mutex<HashMap<UserId, HashMap<RequestId, TrackRequestProcessingState>>>,
+    status_storage: Mutex<HashMap<UserId, HashMap<RequestId, TrackRequestProcessingStatus>>>,
 }
 
 impl StateStorageMock {
@@ -24,6 +27,7 @@ impl StateStorageMock {
         Self {
             context_storage: Mutex::new(HashMap::new()),
             state_storage: Mutex::new(HashMap::new()),
+            status_storage: Mutex::new(HashMap::new()),
         }
     }
 }
@@ -91,12 +95,27 @@ impl StateStorageTrait for StateStorageMock {
         Ok(())
     }
 
+    async fn update_status(
+        &self,
+        user_id: &UserId,
+        request_id: &RequestId,
+        state: &TrackRequestProcessingStatus,
+    ) -> Result<(), StateStorageError> {
+        let mut lock = self.status_storage.lock().unwrap();
+
+        let user_map = lock.entry(user_id.clone()).or_default();
+
+        user_map.insert(request_id.clone(), state.clone());
+
+        Ok(())
+    }
+
     async fn load_state(
         &self,
         user_id: &UserId,
         request_id: &RequestId,
     ) -> Result<TrackRequestProcessingState, StateStorageError> {
-        let mut lock = self.state_storage.lock().unwrap();
+        let lock = self.state_storage.lock().unwrap();
 
         let state = lock
             .get(user_id)
@@ -113,7 +132,7 @@ impl StateStorageTrait for StateStorageMock {
         user_id: &UserId,
         request_id: &RequestId,
     ) -> Result<TrackRequestProcessingContext, StateStorageError> {
-        let mut lock = self.context_storage.lock().unwrap();
+        let lock = self.context_storage.lock().unwrap();
 
         let ctx = lock
             .get(user_id)
@@ -143,6 +162,18 @@ impl StateStorageTrait for StateStorageMock {
         request_id: &RequestId,
     ) -> Result<(), StateStorageError> {
         let mut lock = self.context_storage.lock().unwrap();
+
+        let _ = lock.get_mut(user_id).and_then(|map| map.remove(request_id));
+
+        Ok(())
+    }
+
+    async fn delete_status(
+        &self,
+        user_id: &UserId,
+        request_id: &RequestId,
+    ) -> Result<(), StateStorageError> {
+        let mut lock = self.status_storage.lock().unwrap();
 
         let _ = lock.get_mut(user_id).and_then(|map| map.remove(request_id));
 
