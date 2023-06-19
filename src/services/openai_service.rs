@@ -33,7 +33,8 @@ impl OpenAIService {
         let tracks_list_str = tracks_list
             .iter()
             .map(|m| format!("{} - {}", m.artist, m.title))
-            .collect::<Vec<_>>();
+            .collect::<Vec<_>>()
+            .join("\n");
 
         let response = self
             .client
@@ -42,7 +43,7 @@ impl OpenAIService {
             .json(&serde_json::json!({
                 "model": "gpt-3.5-turbo",
                 "messages": [
-                    {"role": "system", "content": "The user will provide you with a list of audio tracks. One track per each line.\n\nSuggest 2 new audio tracks to that list that will ideally fit existing ones in terms of vibe and mood.\n\nProvide a response as an array of objects with fields: \"title\", \"artist\" and \"album\". Without any additional comments and descriptions."},
+                    {"role": "system", "content": "Here are the rules you should follow:\n\n1. The user will provide you with a list of audio tracks, where each track is separated by a new line.\n\n2. Create a valid JSON array containing two audio tracks that will ideally fit existing ones in the list in terms of vibe and mood. Objects should have the following fields: title, artist and album.\n\n3. Without any additional comments and descriptions. Just array."},
                     {"role": "user", "content": tracks_list_str}
                 ]
             }))
@@ -51,6 +52,8 @@ impl OpenAIService {
             .error_for_status()?
             .json::<serde_json::Value>()
             .await?;
+
+        eprintln!("{:}", response);
 
         let response_content = response
             .get("choices")
