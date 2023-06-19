@@ -71,6 +71,7 @@ async fn main() -> std::io::Result<()> {
         move || {
             App::new()
                 .app_data(Data::new(Arc::clone(&track_request_processor)))
+                .service(web::resource("/").route(web::get().to(http::get_track_request_statuses)))
                 .service(web::resource("/create").route(web::post().to(http::make_track_request)))
         }
     })

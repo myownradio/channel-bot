@@ -1,7 +1,7 @@
 use crate::types::UserId;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::ErrorKind;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -201,6 +201,21 @@ pub(crate) enum TrackRequestProcessingStep {
     Finish,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub(crate) enum TrackRequestProcessingStatus {
+    Processing,
+    NotFound,
+    Failed,
+    Finished,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct RadioManagerChannelTrack {
+    pub(crate) album: String,
+    pub(crate) artist: String,
+    pub(crate) title: String,
+}
+
 #[async_trait]
 pub(crate) trait StateStorageTrait {
     async fn create_state(
@@ -220,6 +235,12 @@ pub(crate) trait StateStorageTrait {
         user_id: &UserId,
         request_id: &RequestId,
         state: &TrackRequestProcessingState,
+    ) -> Result<(), StateStorageError>;
+    async fn update_status(
+        &self,
+        user_id: &UserId,
+        request_id: &RequestId,
+        status: &TrackRequestProcessingStatus,
     ) -> Result<(), StateStorageError>;
     async fn load_state(
         &self,
@@ -241,6 +262,15 @@ pub(crate) trait StateStorageTrait {
         user_id: &UserId,
         request_id: &RequestId,
     ) -> Result<(), StateStorageError>;
+    async fn delete_status(
+        &self,
+        user_id: &UserId,
+        request_id: &RequestId,
+    ) -> Result<(), StateStorageError>;
+    async fn get_all_statuses(
+        &self,
+        user_id: &UserId,
+    ) -> Result<HashMap<RequestId, TrackRequestProcessingStatus>, StateStorageError>;
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -325,6 +355,10 @@ pub(crate) trait RadioManagerClientTrait {
         track_id: &RadioManagerTrackId,
         channel_id: &RadioManagerChannelId,
     ) -> Result<RadioManagerLinkId, RadioManagerClientError>;
+    async fn get_channel_tracks(
+        &self,
+        channel_id: &RadioManagerChannelId,
+    ) -> Result<Vec<RadioManagerChannelTrack>, RadioManagerClientError>;
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -363,6 +397,8 @@ pub(crate) enum ProcessRequestError {
     MetadataServiceError(#[from] MetadataServiceError),
     #[error(transparent)]
     RadioManagerError(#[from] RadioManagerClientError),
+    #[error("Request track has not been found")]
+    TrackNotFound,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -428,8 +464,44 @@ impl TrackRequestProcessor {
         let ctx = self.state_storage.load_context(user_id, request_id).await?;
         let mut state = self.state_storage.load_state(user_id, request_id).await?;
 
+        self.state_storage
+            .update_status(
+                user_id,
+                request_id,
+                &TrackRequestProcessingStatus::Processing,
+            )
+            .await?;
+
+        // TODO Check if the file already exists in library.
+
         while !matches!(state.get_step(), TrackRequestProcessingStep::Finish) {
-            self.handle_next_step(user_id, &ctx, &mut state).await?;
+            if let Err(error) = self
+                .handle_next_step(user_id, request_id, &ctx, &mut state)
+                .await
+            {
+                match error {
+                    ProcessRequestError::TrackNotFound => {
+                        self.state_storage
+                            .update_status(
+                                user_id,
+                                request_id,
+                                &TrackRequestProcessingStatus::NotFound,
+                            )
+                            .await?;
+                    }
+                    _ => {
+                        self.state_storage
+                            .update_status(
+                                user_id,
+                                request_id,
+                                &TrackRequestProcessingStatus::Failed,
+                            )
+                            .await?;
+                    }
+                }
+
+                return Err(error);
+            };
             self.state_storage
                 .update_state(user_id, request_id, &state)
                 .await?;
@@ -438,6 +510,9 @@ impl TrackRequestProcessor {
 
         info!("Track processing finished");
 
+        self.state_storage
+            .update_status(user_id, request_id, &TrackRequestProcessingStatus::Finished)
+            .await?;
         self.state_storage.delete_state(user_id, request_id).await?;
         self.state_storage
             .delete_context(user_id, request_id)
@@ -446,9 +521,19 @@ impl TrackRequestProcessor {
         Ok(())
     }
 
+    pub(crate) async fn get_processing_requests(
+        &self,
+        user_id: &UserId,
+    ) -> Result<HashMap<RequestId, TrackRequestProcessingStatus>, ProcessRequestError> {
+        let statuses = self.state_storage.get_all_statuses(user_id).await?;
+
+        Ok(statuses)
+    }
+
     async fn handle_next_step(
         &self,
         user_id: &UserId,
+        request_id: &RequestId,
         ctx: &TrackRequestProcessingContext,
         state: &mut TrackRequestProcessingState,
     ) -> Result<(), ProcessRequestError> {
@@ -458,7 +543,8 @@ impl TrackRequestProcessor {
 
         match step {
             TrackRequestProcessingStep::SearchAudioAlbum => {
-                self.search_audio_album(user_id, ctx, state).await?;
+                self.search_audio_album(user_id, request_id, ctx, state)
+                    .await?;
             }
             TrackRequestProcessingStep::DownloadTorrentFile => {
                 self.download_torrent_file(user_id, ctx, state).await?;
@@ -484,7 +570,8 @@ impl TrackRequestProcessor {
 
     async fn search_audio_album(
         &self,
-        _user_id: &UserId,
+        user_id: &UserId,
+        request_id: &RequestId,
         ctx: &TrackRequestProcessingContext,
         state: &mut TrackRequestProcessingState,
     ) -> Result<(), ProcessRequestError> {
@@ -503,8 +590,7 @@ impl TrackRequestProcessor {
             Some(topic) => topic,
             None => {
                 error!("No more search results containing requested track... Mission impossible.");
-
-                todo!();
+                return Err(ProcessRequestError::TrackNotFound);
             }
         };
 
@@ -578,13 +664,16 @@ impl TrackRequestProcessor {
         let torrent = self.torrent_client.get_torrent(&torrent_id).await?;
 
         if !matches!(torrent.status, TorrentStatus::Complete) {
-            // Still downloading
+            // Still downloading? Check again in 5 secs...
             actix_rt::time::sleep(Duration::from_secs(5)).await;
 
             return Ok(());
         }
 
         debug!(%torrent_id, "Download complete. Checking files metadata...");
+
+        let title_lc = ctx.metadata.title.to_lowercase();
+        let artist_lc = ctx.metadata.artist.to_lowercase();
 
         for file in torrent.files {
             if ctx.options.validate_metadata {
@@ -593,24 +682,15 @@ impl TrackRequestProcessor {
                     _ => continue,
                 };
 
-                if metadata
-                    .artist
-                    .to_lowercase()
-                    .starts_with(&ctx.metadata.artist.to_lowercase())
-                    && metadata
-                        .title
-                        .to_lowercase()
-                        .starts_with(&ctx.metadata.title.to_lowercase())
+                if metadata.artist.to_lowercase().starts_with(&artist_lc)
+                    && metadata.title.to_lowercase().starts_with(&title_lc)
                 {
                     info!("Found matching audio file: {}", file);
                     state.path_to_downloaded_file.replace(file);
                     return Ok(());
                 }
             } else {
-                if file
-                    .to_lowercase()
-                    .contains(&ctx.metadata.title.to_lowercase())
-                {
+                if file.to_lowercase().contains(&title_lc) {
                     info!("Found matching audio file: {}", file);
                     state.path_to_downloaded_file.replace(file);
                     return Ok(());

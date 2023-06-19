@@ -53,3 +53,22 @@ pub(crate) async fn make_track_request(
         }
     }
 }
+
+pub(crate) async fn get_track_request_statuses(
+    track_request_processor: web::Data<Arc<TrackRequestProcessor>>,
+) -> impl Responder {
+    let user_id = UserId(1); // Not used yet
+
+    let statuses = match track_request_processor
+        .get_processing_requests(&user_id)
+        .await
+    {
+        Ok(statuses) => statuses,
+        Err(error) => {
+            error!(?error, "Unable to get track processing statuses");
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+
+    HttpResponse::Ok().json(statuses)
+}

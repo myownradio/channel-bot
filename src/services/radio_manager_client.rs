@@ -20,20 +20,25 @@ pub(crate) enum RadioManagerClientError {
     IoError(#[from] std::io::Error),
     #[error("Unexpected error: {0}")]
     Unexpected(String),
+    #[error("Audio track already exists in user library")]
+    TrackExists,
 }
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct RadioManagerResponse<Data> {
     code: i64,
     message: String,
-    data: Data,
+    data: Option<Data>,
 }
 
 impl<Data> RadioManagerResponse<Data> {
     fn error_for_code(self) -> Result<Data, RadioManagerClientError> {
-        match self.code {
-            1 => Ok(self.data),
-            _ => Err(RadioManagerClientError::Unexpected(self.message)),
+        match (self.code, self.data, self.message) {
+            (1, Some(data), _) => Ok(data),
+            (_, _, message) if message.contains("file already exists") => {
+                Err(RadioManagerClientError::TrackExists)
+            }
+            (_, _, message) => Err(RadioManagerClientError::Unexpected(message)),
         }
     }
 }
@@ -87,7 +92,7 @@ impl RadioManagerClient {
             .send()
             .await?
             .error_for_status()?
-            .json::<RadioManagerResponse<()>>()
+            .json::<RadioManagerResponse<serde_json::Value>>()
             .await?
             .error_for_code()?;
 

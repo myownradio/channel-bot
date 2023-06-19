@@ -1,17 +1,23 @@
 use crate::services::track_request_processor::{
     AudioMetadata, DownloadId, MetadataServiceError, MetadataServiceTrait, RadioManagerChannelId,
-    RadioManagerClientError, RadioManagerClientTrait, RadioManagerLinkId, RadioManagerTrackId,
-    RequestId, SearchProviderError, SearchProviderTrait, StateStorageError, StateStorageTrait,
-    TopicData, TopicId, Torrent, TorrentClientError, TorrentClientTrait, TorrentId, TorrentStatus,
-    TrackRequestProcessingContext, TrackRequestProcessingState,
+    RadioManagerChannelTrack, RadioManagerClientError, RadioManagerClientTrait, RadioManagerLinkId,
+    RadioManagerTrackId, RequestId, SearchProviderError, SearchProviderTrait, StateStorageError,
+    StateStorageTrait, TopicData, TopicId, Torrent, TorrentClientError, TorrentClientTrait,
+    TorrentId, TorrentStatus, TrackRequestProcessingContext, TrackRequestProcessingState,
+    TrackRequestProcessingStatus,
 };
-use crate::services::{MetadataService, RadioManagerClient, TransmissionClient};
+use crate::services::{
+    radio_manager_client, track_request_processor, MetadataService, RadioManagerClient,
+    TransmissionClient,
+};
 use crate::storage::on_disk::OnDiskStorage;
 use crate::types::UserId;
 use async_trait::async_trait;
 use audiotags::Tag;
 use search_providers::RuTrackerClient;
+use std::collections::HashMap;
 use tracing::error;
+use uuid::Uuid;
 
 #[async_trait]
 impl StateStorageTrait for OnDiskStorage {
@@ -40,7 +46,7 @@ impl StateStorageTrait for OnDiskStorage {
     ) -> Result<(), StateStorageError> {
         let prefix = format!("{}-ctx", user_id);
         let key = format!("{}", request_id);
-        let state_str = serde_json::to_string(&ctx).expect("Unable to serialize state");
+        let state_str = serde_json::to_string(&ctx).expect("Unable to serialize context");
 
         self.save(&prefix, &key, &state_str)
             .await
@@ -58,6 +64,23 @@ impl StateStorageTrait for OnDiskStorage {
         let prefix = format!("{}-state", user_id);
         let key = format!("{}", request_id);
         let state_str = serde_json::to_string(&state).expect("Unable to serialize state");
+
+        self.save(&prefix, &key, &state_str)
+            .await
+            .map_err(|error| StateStorageError(Box::new(error)))?;
+
+        Ok(())
+    }
+
+    async fn update_status(
+        &self,
+        user_id: &UserId,
+        request_id: &RequestId,
+        state: &TrackRequestProcessingStatus,
+    ) -> Result<(), StateStorageError> {
+        let prefix = format!("{}-status", user_id);
+        let key = format!("{}", request_id);
+        let state_str = serde_json::to_string(&state).expect("Unable to serialize status");
 
         self.save(&prefix, &key, &state_str)
             .await
@@ -97,7 +120,7 @@ impl StateStorageTrait for OnDiskStorage {
             .await
             .map_err(|error| StateStorageError(Box::new(error)))?
         {
-            Some(value) => serde_json::from_str(&value).expect("Unable to deserialize state"),
+            Some(value) => serde_json::from_str(&value).expect("Unable to deserialize context"),
             None => return Err(StateStorageError::not_found()),
         };
 
@@ -132,6 +155,47 @@ impl StateStorageTrait for OnDiskStorage {
             .map_err(|error| StateStorageError(Box::new(error)))?;
 
         Ok(())
+    }
+
+    async fn delete_status(
+        &self,
+        user_id: &UserId,
+        request_id: &RequestId,
+    ) -> Result<(), StateStorageError> {
+        let prefix = format!("{}-status", user_id);
+        let key = format!("{}", request_id);
+
+        self.delete(&prefix, &key)
+            .await
+            .map_err(|error| StateStorageError(Box::new(error)))?;
+
+        Ok(())
+    }
+
+    async fn get_all_statuses(
+        &self,
+        user_id: &UserId,
+    ) -> Result<HashMap<RequestId, TrackRequestProcessingStatus>, StateStorageError> {
+        let prefix = format!("{}-status", user_id);
+        let values = self
+            .get_all(&prefix)
+            .await
+            .map_err(|error| StateStorageError(Box::new(error)))?;
+
+        let mut results = HashMap::new();
+
+        for (key, value) in values {
+            let request_id = RequestId(
+                key.parse::<Uuid>()
+                    .map_err(|error| StateStorageError(Box::new(error)))?,
+            );
+            let status =
+                serde_json::from_str(&value).map_err(|error| StateStorageError(Box::new(error)))?;
+
+            results.insert(request_id, status);
+        }
+
+        Ok(results)
     }
 }
 
@@ -228,6 +292,16 @@ impl MetadataServiceTrait for MetadataService {
     }
 }
 
+impl Into<RadioManagerChannelTrack> for radio_manager_client::RadioManagerChannelTrack {
+    fn into(self) -> RadioManagerChannelTrack {
+        RadioManagerChannelTrack {
+            title: self.title,
+            album: self.album,
+            artist: self.artist,
+        }
+    }
+}
+
 #[async_trait]
 impl RadioManagerClientTrait for RadioManagerClient {
     async fn upload_audio_track(
@@ -255,5 +329,16 @@ impl RadioManagerClientTrait for RadioManagerClient {
             .map_err(|error| RadioManagerClientError(Box::new(error)))?;
 
         Ok(link_id)
+    }
+
+    async fn get_channel_tracks(
+        &self,
+        channel_id: &RadioManagerChannelId,
+    ) -> Result<Vec<RadioManagerChannelTrack>, RadioManagerClientError> {
+        let tracks = RadioManagerClient::get_channel_tracks(self, channel_id)
+            .await
+            .map_err(|error| RadioManagerClientError(Box::new(error)))?;
+
+        Ok(tracks.into_iter().map(Into::into).collect())
     }
 }
