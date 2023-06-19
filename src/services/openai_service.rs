@@ -53,8 +53,6 @@ impl OpenAIService {
             .json::<serde_json::Value>()
             .await?;
 
-        eprintln!("{:}", response);
-
         let response_content = response
             .get("choices")
             .and_then(|choices| choices.get(0))
