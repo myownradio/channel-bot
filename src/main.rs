@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::services::{
-    MetadataService, RadioManagerClient, TrackRequestProcessor, TransmissionClient,
+    MetadataService, OpenAIService, RadioManagerClient, TrackRequestProcessor, TransmissionClient,
 };
 use crate::storage::on_disk::OnDiskStorage;
 use actix_rt::signal::unix;
@@ -63,6 +63,7 @@ async fn main() -> std::io::Result<()> {
             config.download_directory.clone(),
         ))
     };
+    let openai_service = Arc::new(OpenAIService::create(config.openai_api_key.clone()));
 
     let shutdown_timeout = config.shutdown_timeout.clone();
     let bind_address = config.bind_address.clone();
@@ -71,6 +72,7 @@ async fn main() -> std::io::Result<()> {
         move || {
             App::new()
                 .app_data(Data::new(Arc::clone(&track_request_processor)))
+                .app_data(Data::new(Arc::clone(&openai_service)))
                 .service(web::resource("/").route(web::get().to(http::get_track_request_statuses)))
                 .service(web::resource("/create").route(web::post().to(http::make_track_request)))
         }

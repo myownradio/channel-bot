@@ -52,6 +52,7 @@ pub(crate) struct Config {
     pub(crate) transmission: TransmissionConfig,
     #[serde(flatten)]
     pub(crate) radiomanager: RadioManagerConfig,
+    pub(crate) openai_api_key: String,
 }
 
 impl Config {
