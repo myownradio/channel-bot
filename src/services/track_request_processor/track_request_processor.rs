@@ -602,23 +602,25 @@ impl TrackRequestProcessor {
 
         let tried_topics_set = state.tried_topics.iter().collect::<HashSet<_>>();
         for query in queries_to_try {
-            debug!("Querying search engine: {}", query);
+            info!("Searching the Internet for {}...", ctx.metadata);
 
-            let results = self.search_provider.search_music(&query).await?;
-            debug!("Found {} results", results.len());
-
-            let topic = match results
+            let new_results: Vec<_> = self
+                .search_provider
+                .search_music(&query)
+                .await?
                 .into_iter()
                 .filter(|r| !tried_topics_set.contains(&r.topic_id))
-                .next()
-            {
+                .collect();
+            info!("Found {} new search results...", new_results.len());
+
+            let topic = match new_results.into_iter().next() {
                 Some(topic) => topic,
                 None => {
                     continue;
                 }
             };
 
-            debug!(?topic, "Found a topic that may contain the requested track");
+            info!("This time we'll try with {}...", topic.title);
 
             state.current_download_id.replace(topic.download_id);
             state.tried_topics.push(topic.topic_id);
@@ -626,14 +628,18 @@ impl TrackRequestProcessor {
             return Ok(());
         }
 
-        error!("No more search results containing requested track... Mission impossible.");
+        error!(
+            "No more search results... The requested track {} has not been found.",
+            ctx.metadata
+        );
+
         Err(ProcessRequestError::TrackNotFound)
     }
 
     async fn download_torrent_file(
         &self,
         _user_id: &UserId,
-        _ctx: &TrackRequestProcessingContext,
+        ctx: &TrackRequestProcessingContext,
         state: &mut TrackRequestProcessingState,
     ) -> Result<(), ProcessRequestError> {
         let download_id = state
@@ -642,13 +648,19 @@ impl TrackRequestProcessor {
             .take()
             .expect("current_download_id should be defined");
 
-        debug!("Downloading torrent data...");
+        info!("Downloading torrent file...");
 
         let torrent_data = self.search_provider.download_torrent(&download_id).await?;
+        let mut files_in_torrent = get_files(&torrent_data)?.into_iter();
 
-        debug!("Torrent data size: {} bytes", torrent_data.len());
+        if files_in_torrent.any(|f| {
+            f.to_lowercase()
+                .contains(&ctx.metadata.title.to_lowercase())
+        }) {
+            info!("Downloaded torrent file seems to have the requested track...");
 
-        state.current_torrent_data.replace(torrent_data);
+            state.current_torrent_data.replace(torrent_data);
+        }
 
         Ok(())
     }
@@ -680,7 +692,7 @@ impl TrackRequestProcessor {
             .add_torrent(torrent_data, selected_files)
             .await?;
 
-        debug!(%torrent_id, "Started downloading the torrent");
+        info!(%torrent_id, "Started downloading the torrent contents...");
 
         state.current_torrent_id.replace(torrent_id);
 
@@ -699,7 +711,7 @@ impl TrackRequestProcessor {
             .take()
             .expect("current_torrent_id should be defined");
 
-        debug!("Checking downloading status of the torrent file...");
+        debug!("Checking the download status of the torrent file...");
 
         let torrent = self.torrent_client.get_torrent(&torrent_id).await?;
 
@@ -787,7 +799,10 @@ impl TrackRequestProcessor {
             .take()
             .expect("radio_manager_track_id should be defined");
 
-        info!("Adding uploaded audio track to radio manager channel");
+        info!(
+            "Adding uploaded audio track to the radio manager channel {}...",
+            ctx.target_channel_id
+        );
 
         let link_id = self
             .radio_manager_client
