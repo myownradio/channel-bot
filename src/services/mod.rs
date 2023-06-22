@@ -12,3 +12,5 @@ pub(crate) use openai_service::*;
 
 pub(crate) mod track_request_processor;
 pub(crate) use track_request_processor::TrackRequestProcessor;
+
+pub(crate) mod torrent_parser;
