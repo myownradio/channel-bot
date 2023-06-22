@@ -1,3 +1,4 @@
+use crate::services::torrent_parser::{get_files, TorrentParserError};
 use crate::types::UserId;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -311,6 +312,7 @@ pub(crate) trait TorrentClientTrait {
     async fn add_torrent(
         &self,
         torrent_file_data: Vec<u8>,
+        selected_files_indexes: Vec<i32>,
     ) -> Result<TorrentId, TorrentClientError>;
     async fn get_torrent(&self, torrent_id: &TorrentId) -> Result<Torrent, TorrentClientError>;
     async fn delete_torrent(&self, torrent_id: &TorrentId) -> Result<(), TorrentClientError>;
@@ -397,6 +399,8 @@ pub(crate) enum ProcessRequestError {
     MetadataServiceError(#[from] MetadataServiceError),
     #[error(transparent)]
     RadioManagerError(#[from] RadioManagerClientError),
+    #[error(transparent)]
+    TorrentParserError(#[from] TorrentParserError),
     #[error("Request track has not been found")]
     TrackNotFound,
 }
@@ -570,8 +574,8 @@ impl TrackRequestProcessor {
 
     async fn search_audio_album(
         &self,
-        user_id: &UserId,
-        request_id: &RequestId,
+        _user_id: &UserId,
+        _request_id: &RequestId,
         ctx: &TrackRequestProcessingContext,
         state: &mut TrackRequestProcessingState,
     ) -> Result<(), ProcessRequestError> {
@@ -628,7 +632,7 @@ impl TrackRequestProcessor {
     async fn download_album(
         &self,
         _user_id: &UserId,
-        _ctx: &TrackRequestProcessingContext,
+        ctx: &TrackRequestProcessingContext,
         state: &mut TrackRequestProcessingState,
     ) -> Result<(), ProcessRequestError> {
         let torrent_data = state
@@ -637,8 +641,20 @@ impl TrackRequestProcessor {
             .take()
             .expect("current_torrent_data should be defined");
 
+        let files_in_torrent = get_files(&torrent_data)?;
+        let track_title_lc = ctx.metadata.title.to_lowercase();
+        let selected_files: Vec<_> = files_in_torrent
+            .into_iter()
+            .enumerate()
+            .filter(|(index, file_path)| file_path.to_lowercase().contains(&track_title_lc))
+            .map(|(index, _)| index as i32)
+            .collect();
+
         debug!("Adding torrent to the torrent client...");
-        let torrent_id = self.torrent_client.add_torrent(torrent_data).await?;
+        let torrent_id = self
+            .torrent_client
+            .add_torrent(torrent_data, selected_files)
+            .await?;
 
         debug!(%torrent_id, "Started downloading the torrent");
 
