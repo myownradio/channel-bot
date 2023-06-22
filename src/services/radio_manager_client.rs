@@ -44,11 +44,8 @@ impl<Data> RadioManagerResponse<Data> {
 }
 
 #[derive(Debug, Deserialize)]
-enum RadioManagerUploadedTrackData {
-    Null,
-    Tracks {
-        tracks: Vec<RadioManagerUploadedTrack>,
-    },
+struct RadioManagerUploadedTracksData {
+    tracks: Vec<RadioManagerUploadedTrack>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -126,18 +123,13 @@ impl RadioManagerClient {
             .send()
             .await?
             .error_for_status()?
-            .json::<RadioManagerResponse<RadioManagerUploadedTrackData>>()
+            .json::<RadioManagerResponse<RadioManagerUploadedTracksData>>()
             .await?
             .error_for_code()?;
 
-        match data {
-            RadioManagerUploadedTrackData::Tracks { tracks } if tracks.len() > 0 => Ok(
-                RadioManagerTrackId(tracks.first().map(|t| t.tid).unwrap_or_default()),
-            ),
-            _ => Err(RadioManagerClientError::Unexpected(String::from(
-                "No tracks were uploaded",
-            ))),
-        }
+        Ok(RadioManagerTrackId(
+            data.tracks.first().map(|t| t.tid).unwrap_or_default(),
+        ))
     }
 
     pub(crate) async fn add_track_to_channel(
