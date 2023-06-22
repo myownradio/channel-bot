@@ -602,7 +602,7 @@ impl TrackRequestProcessor {
 
         let tried_topics_set = state.tried_topics.iter().collect::<HashSet<_>>();
         for query in queries_to_try {
-            info!("Searching the Internet for {}...", ctx.metadata);
+            info!("Searching the Internet for \"{}\"...", query);
 
             let new_results: Vec<_> = self
                 .search_provider
@@ -651,15 +651,16 @@ impl TrackRequestProcessor {
         info!("Downloading torrent file...");
 
         let torrent_data = self.search_provider.download_torrent(&download_id).await?;
-        let mut files_in_torrent = get_files(&torrent_data)?.into_iter();
+        let files_in_torrent = get_files(&torrent_data)?;
 
-        if files_in_torrent.any(|f| {
+        if files_in_torrent.into_iter().any(|f| {
             f.to_lowercase()
                 .contains(&ctx.metadata.title.to_lowercase())
         }) {
             info!("Downloaded torrent file seems to have the requested track...");
-
             state.current_torrent_data.replace(torrent_data);
+        } else {
+            state.current_download_id.take();
         }
 
         Ok(())
