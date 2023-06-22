@@ -172,7 +172,7 @@ impl RadioManagerClient {
             let mut data = self
                 .client
                 .get(format!(
-                    "{}radio-manager/api/v0/streams/{}/tracks",
+                    "{}radio-manager/api/v0/streams/{}/tracks/",
                     self.endpoint, channel_id
                 ))
                 .query(&serde_json::json!({

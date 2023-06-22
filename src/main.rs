@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::services::{
-    MetadataService, RadioManagerClient, TrackRequestProcessor, TransmissionClient,
+    MetadataService, OpenAIService, RadioManagerClient, TrackRequestProcessor, TransmissionClient,
 };
 use crate::storage::on_disk::OnDiskStorage;
 use actix_rt::signal::unix;
@@ -44,13 +44,15 @@ async fn main() -> std::io::Result<()> {
         config.transmission.password.clone(),
         config.transmission.download_directory.clone(),
     );
-    let radio_manager_client = RadioManagerClient::create(
-        &config.radiomanager.endpoint,
-        &config.radiomanager.username,
-        &config.radiomanager.password,
-    )
-    .await
-    .expect("Unable to initialize RadioManager client");
+    let radio_manager_client = Arc::new(
+        RadioManagerClient::create(
+            &config.radiomanager.endpoint,
+            &config.radiomanager.username,
+            &config.radiomanager.password,
+        )
+        .await
+        .expect("Unable to initialize RadioManager client"),
+    );
     let metadata_service = MetadataService::new();
 
     let track_request_processor = {
@@ -59,10 +61,11 @@ async fn main() -> std::io::Result<()> {
             Arc::from(rutracker_client),
             Arc::from(transmission_client),
             Arc::from(metadata_service),
-            Arc::from(radio_manager_client),
+            radio_manager_client.clone(),
             config.download_directory.clone(),
         ))
     };
+    let openai_service = Arc::new(OpenAIService::create(config.openai_api_key.clone()));
 
     let shutdown_timeout = config.shutdown_timeout.clone();
     let bind_address = config.bind_address.clone();
@@ -71,8 +74,13 @@ async fn main() -> std::io::Result<()> {
         move || {
             App::new()
                 .app_data(Data::new(Arc::clone(&track_request_processor)))
+                .app_data(Data::new(Arc::clone(&openai_service)))
+                .app_data(Data::new(Arc::clone(&radio_manager_client)))
                 .service(web::resource("/").route(web::get().to(http::get_track_request_statuses)))
                 .service(web::resource("/create").route(web::post().to(http::make_track_request)))
+                .service(
+                    web::resource("/suggest").route(web::post().to(http::make_tracks_suggestion)),
+                )
         }
     })
     .shutdown_timeout(shutdown_timeout)
