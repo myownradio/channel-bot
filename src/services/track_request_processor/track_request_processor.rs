@@ -34,6 +34,12 @@ pub(crate) struct AudioMetadata {
     pub(crate) album: String,
 }
 
+impl std::fmt::Display for AudioMetadata {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} - {} ({})", self.artist, self.title, self.album)
+    }
+}
+
 #[derive(Eq, PartialEq, Clone, Hash, Debug, Serialize, Deserialize)]
 pub(crate) struct RadioManagerChannelId(pub(crate) u64);
 
@@ -437,6 +443,11 @@ impl TrackRequestProcessor {
         options: &CreateRequestOptions,
         target_channel_id: &RadioManagerChannelId,
     ) -> Result<RequestId, CreateRequestError> {
+        debug!(
+            ?target_channel_id,
+            "Creating the new track request - {}", track_metadata
+        );
+
         let request_id = RequestId(Uuid::new_v4());
         let ctx = TrackRequestProcessingContext::new(
             track_metadata.clone(),
@@ -452,7 +463,10 @@ impl TrackRequestProcessor {
             .create_state(user_id, &request_id, state)
             .await?;
 
-        info!(%request_id, "Created new track request");
+        info!(
+            ?target_channel_id,
+            "Created new track request {} for {}", request_id, track_metadata
+        );
 
         Ok(request_id)
     }
@@ -463,7 +477,7 @@ impl TrackRequestProcessor {
         user_id: &UserId,
         request_id: &RequestId,
     ) -> Result<(), ProcessRequestError> {
-        info!("Start processing track request");
+        debug!("Starting processing the track request {}", request_id);
 
         let ctx = self.state_storage.load_context(user_id, request_id).await?;
         let mut state = self.state_storage.load_state(user_id, request_id).await?;
@@ -512,7 +526,7 @@ impl TrackRequestProcessor {
             actix_rt::time::sleep(Duration::from_secs(1)).await;
         }
 
-        info!("Track processing finished");
+        info!("Track request {} processing finished", request_id);
 
         self.state_storage
             .update_status(user_id, request_id, &TrackRequestProcessingStatus::Finished)
