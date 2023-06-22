@@ -579,31 +579,41 @@ impl TrackRequestProcessor {
         ctx: &TrackRequestProcessingContext,
         state: &mut TrackRequestProcessingState,
     ) -> Result<(), ProcessRequestError> {
-        let query = format!("{} - {}", ctx.metadata.artist, ctx.metadata.album);
-        debug!("Querying search engine: {}", query);
-
-        let results = self.search_provider.search_music(&query).await?;
-        debug!("Found {} results", results.len());
+        let queries_to_try = vec![
+            format!("{} - {}", ctx.metadata.artist, ctx.metadata.album),
+            format!("{} дискография", ctx.metadata.artist),
+            format!("{} discography", ctx.metadata.artist),
+            format!("{} дискографія", ctx.metadata.artist),
+        ];
 
         let tried_topics_set = state.tried_topics.iter().collect::<HashSet<_>>();
-        let topic = match results
-            .into_iter()
-            .filter(|r| !tried_topics_set.contains(&r.topic_id))
-            .next()
-        {
-            Some(topic) => topic,
-            None => {
-                error!("No more search results containing requested track... Mission impossible.");
-                return Err(ProcessRequestError::TrackNotFound);
-            }
-        };
+        for query in queries_to_try {
+            debug!("Querying search engine: {}", query);
 
-        debug!(?topic, "Found topic that may contain the requested track");
+            let results = self.search_provider.search_music(&query).await?;
+            debug!("Found {} results", results.len());
 
-        state.current_download_id.replace(topic.download_id);
-        state.tried_topics.push(topic.topic_id);
+            let topic = match results
+                .into_iter()
+                .filter(|r| !tried_topics_set.contains(&r.topic_id))
+                .next()
+            {
+                Some(topic) => topic,
+                None => {
+                    continue;
+                }
+            };
 
-        Ok(())
+            debug!(?topic, "Found a topic that may contain the requested track");
+
+            state.current_download_id.replace(topic.download_id);
+            state.tried_topics.push(topic.topic_id);
+
+            return Ok(());
+        }
+
+        error!("No more search results containing requested track... Mission impossible.");
+        Err(ProcessRequestError::TrackNotFound)
     }
 
     async fn download_torrent_file(
