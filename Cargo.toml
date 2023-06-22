@@ -18,6 +18,8 @@ actix-rt = "2.8.0"
 actix-web = { version = "4.3.1", features = ["rustls"] }
 serde = { version = "1.0.163", features = ["derive"] }
 serde_json = "1.0.96"
+serde_bencode = "0.2.3"
+serde_bytes = "0.11.9"
 uuid = { version = "1.3.3", features = ["v4", "serde"] }
 reqwest = { version = "0.11.18", features = ["cookies", "multipart", "stream"] }
 scraper = { version = "0.16.0" }
