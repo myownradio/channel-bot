@@ -1,7 +1,9 @@
+use crate::services::torrent_parser::{get_files_count, TorrentParserError};
 use async_lock::Mutex;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use transmission_rpc::types::{
-    BasicAuth, Id, RpcResponse, Torrent, TorrentAddArgs, TorrentAddedOrDuplicate,
+    BasicAuth, Id, RpcResponse, Torrent, TorrentAction, TorrentAddArgs, TorrentAddedOrDuplicate,
+    TorrentSetArgs,
 };
 use transmission_rpc::TransClient;
 
@@ -18,6 +20,8 @@ pub(crate) enum TransmissionClientError {
     ErroneousResult(String),
     #[error("Unable to perform RPC request on transmission server: {0}")]
     TransmissionError(#[from] Box<dyn std::error::Error + Send + Sync>),
+    #[error("Torrent file parsing error: {0}")]
+    TorrentParserError(#[from] TorrentParserError),
 }
 
 pub(crate) type Result<T> = std::result::Result<T, TransmissionClientError>;
@@ -43,7 +47,32 @@ impl TransmissionClient {
         }
     }
 
+    pub(crate) async fn select_files(&self, torrent_id: &i64, file_indexes: &[i32]) -> Result<()> {
+        let id = Id::Id(*torrent_id);
+
+        self.client
+            .lock()
+            .await
+            .torrent_set(
+                TorrentSetArgs {
+                    files_wanted: Some(file_indexes.iter().map(|i| *i).collect()),
+                    ..TorrentSetArgs::default()
+                },
+                Some(vec![id.clone()]),
+            )
+            .await?;
+
+        self.client
+            .lock()
+            .await
+            .torrent_action(TorrentAction::Start, vec![id])
+            .await?;
+
+        Ok(())
+    }
+
     pub(crate) async fn add(&self, torrent_file_content: Vec<u8>) -> Result<i64> {
+        let files_count = get_files_count(&torrent_file_content)?;
         let metainfo = STANDARD.encode(torrent_file_content);
 
         let RpcResponse { arguments, result } = self
@@ -53,6 +82,8 @@ impl TransmissionClient {
             .torrent_add(TorrentAddArgs {
                 metainfo: Some(metainfo.clone()),
                 download_dir: Some(self.download_dir.clone()),
+                // Initialize new torrent with disabling download of any files.
+                files_unwanted: Some((0..files_count as i32).collect()),
                 ..TorrentAddArgs::default()
             })
             .await?;

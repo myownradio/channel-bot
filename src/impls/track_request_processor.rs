@@ -204,9 +204,13 @@ impl TorrentClientTrait for TransmissionClient {
     async fn add_torrent(
         &self,
         torrent_file_data: Vec<u8>,
+        selected_files_indexes: Vec<i32>,
     ) -> Result<TorrentId, TorrentClientError> {
         let torrent_id = self
             .add(torrent_file_data)
+            .await
+            .map_err(|err| TorrentClientError(Box::from(err)))?;
+        self.select_files(&torrent_id, &selected_files_indexes)
             .await
             .map_err(|err| TorrentClientError(Box::from(err)))?;
 
