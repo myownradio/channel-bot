@@ -1,5 +1,6 @@
 use crate::services::track_request_processor::{
-    RequestId, StateStorageError, StateStorageTrait, TrackRequestProcessingContext,
+    AudioMetadata, CreateRequestError, CreateRequestOptions, RadioManagerChannelId, RequestId,
+    StateStorageError, StateStorageTrait, TrackRequestProcessingContext,
     TrackRequestProcessingState,
 };
 use crate::services::TrackRequestProcessor;
@@ -11,6 +12,8 @@ use tracing::error;
 pub(crate) enum TrackRequestControllerError {
     #[error(transparent)]
     StateStorageError(#[from] StateStorageError),
+    #[error(transparent)]
+    TrackRequestError(#[from] CreateRequestError),
 }
 
 pub(crate) struct TrackRequestController {
@@ -29,13 +32,36 @@ impl TrackRequestController {
         let tasks = state_storage.get_all_tasks().await?;
 
         for (user_id, request_id) in tasks {
-            controller.spawn_task(user_id, request_id);
+            controller.spawn_task(&user_id, &request_id);
         }
 
         Ok(controller)
     }
 
-    fn spawn_task(&self, user_id: UserId, request_id: RequestId) {
+    pub(crate) async fn create_request(
+        &self,
+        user_id: &UserId,
+        metadata: &AudioMetadata,
+        target_channel_id: &RadioManagerChannelId,
+    ) -> Result<(), TrackRequestControllerError> {
+        let request_id = self
+            .track_request_processor
+            .create_request(
+                user_id,
+                metadata,
+                &CreateRequestOptions {
+                    validate_metadata: false,
+                },
+                target_channel_id,
+            )
+            .await?;
+
+        self.spawn_task(&user_id, &request_id);
+
+        Ok(())
+    }
+
+    fn spawn_task(&self, user_id: &UserId, request_id: &RequestId) {
         actix_rt::spawn({
             let user_id = user_id.clone();
             let request_id = request_id.clone();

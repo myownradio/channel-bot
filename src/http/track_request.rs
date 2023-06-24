@@ -1,5 +1,5 @@
 use crate::services::track_request_processor::{
-    AudioMetadata, CreateRequestOptions, RadioManagerChannelId,
+    AudioMetadata, CreateRequestOptions, RadioManagerChannelId, TrackRequestController,
 };
 use crate::services::{OpenAIService, RadioManagerClient, TrackRequestProcessor};
 use crate::types::UserId;
@@ -12,46 +12,25 @@ use tracing::error;
 pub(crate) struct MakeTrackRequestData {
     #[serde(flatten)]
     metadata: AudioMetadata,
-    #[serde(default)]
-    validate_metadata: bool,
     target_channel_id: RadioManagerChannelId,
 }
 
 pub(crate) async fn make_track_request(
-    track_request_processor: web::Data<Arc<TrackRequestProcessor>>,
+    track_request_controller: web::Data<Arc<TrackRequestController>>,
     params: web::Json<MakeTrackRequestData>,
 ) -> impl Responder {
     let query = params.into_inner();
     let user_id = UserId(1); // Not used yet
 
-    let request_id = match track_request_processor
-        .create_request(
-            &user_id,
-            &query.metadata,
-            &CreateRequestOptions {
-                validate_metadata: query.validate_metadata,
-            },
-            &query.target_channel_id,
-        )
+    if let Err(error) = track_request_controller
+        .create_request(&user_id, &query.metadata, &query.target_channel_id)
         .await
     {
-        Ok(request_id) => request_id,
-        Err(error) => {
-            error!(?error, "Unable to create track request");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
-    match track_request_processor
-        .process_request(&user_id, &request_id)
-        .await
-    {
-        Ok(()) => HttpResponse::Ok().finish(),
-        Err(error) => {
-            error!(?error, "Unable to process track request");
-            return HttpResponse::InternalServerError().finish();
-        }
+        error!(?error, "Unable to create track request");
+        return HttpResponse::InternalServerError().finish();
     }
+
+    HttpResponse::Accepted().finish()
 }
 
 #[derive(Deserialize)]

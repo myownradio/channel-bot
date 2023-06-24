@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::services::track_request_processor::TrackRequestController;
 use crate::services::{
     MetadataService, OpenAIService, RadioManagerClient, TrackRequestProcessor, TransmissionClient,
 };
@@ -31,7 +32,9 @@ async fn main() -> std::io::Result<()> {
 
     info!("Starting application...");
 
-    let state_storage = OnDiskStorage::create(config.state_storage_directory.clone());
+    let state_storage = Arc::from(OnDiskStorage::create(
+        config.state_storage_directory.clone(),
+    ));
     let rutracker_client = search_providers::RuTrackerClient::create(
         &config.rutracker.username,
         &config.rutracker.password,
@@ -57,7 +60,7 @@ async fn main() -> std::io::Result<()> {
 
     let track_request_processor = {
         Arc::new(TrackRequestProcessor::new(
-            Arc::from(state_storage),
+            state_storage.clone(),
             Arc::from(rutracker_client),
             Arc::from(transmission_client),
             Arc::from(metadata_service),
@@ -65,6 +68,11 @@ async fn main() -> std::io::Result<()> {
             config.download_directory.clone(),
         ))
     };
+    let track_request_controller = Arc::new(
+        TrackRequestController::create(state_storage.clone(), track_request_processor.clone())
+            .await
+            .expect("Unable to initialize TrackRequestController"),
+    );
     let openai_service = Arc::new(OpenAIService::create(config.openai_api_key.clone()));
 
     let shutdown_timeout = config.shutdown_timeout.clone();
@@ -74,6 +82,7 @@ async fn main() -> std::io::Result<()> {
         move || {
             App::new()
                 .app_data(Data::new(Arc::clone(&track_request_processor)))
+                .app_data(Data::new(Arc::clone(&track_request_controller)))
                 .app_data(Data::new(Arc::clone(&openai_service)))
                 .app_data(Data::new(Arc::clone(&radio_manager_client)))
                 .service(web::resource("/").route(web::get().to(http::get_track_request_statuses)))
