@@ -48,6 +48,22 @@ impl OnDiskStorage {
         Ok(map)
     }
 
+    pub(crate) async fn get_prefixes(&self) -> Result<Vec<String>, std::io::Error> {
+        let mut prefixes = vec![];
+
+        let mut dir_reader = match tokio::fs::read_dir(&self.path).await {
+            Ok(reader) => reader,
+            Err(_) => return Ok(vec![]),
+        };
+
+        while let Some(dir) = dir_reader.next_entry().await? {
+            let filename = dir.file_name().to_str().unwrap_or_default().to_string();
+            prefixes.push(filename);
+        }
+
+        Ok(prefixes)
+    }
+
     pub(crate) async fn save(
         &self,
         prefix: &str,

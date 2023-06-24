@@ -278,6 +278,7 @@ pub(crate) trait StateStorageTrait {
         &self,
         user_id: &UserId,
     ) -> Result<HashMap<RequestId, TrackRequestProcessingStatus>, StateStorageError>;
+    async fn get_all_tasks(&self) -> Result<Vec<(UserId, RequestId)>, StateStorageError>;
 }
 
 #[derive(Debug, thiserror::Error)]

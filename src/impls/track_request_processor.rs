@@ -197,6 +197,42 @@ impl StateStorageTrait for OnDiskStorage {
 
         Ok(results)
     }
+
+    async fn get_all_tasks(&self) -> Result<Vec<(UserId, RequestId)>, StateStorageError> {
+        let prefixes = self
+            .get_prefixes()
+            .await
+            .map_err(|error| StateStorageError(Box::new(error)))?
+            .into_iter()
+            .filter(|prefix| prefix.ends_with("-ctx"))
+            .collect::<Vec<_>>();
+
+        let mut tasks = vec![];
+
+        for prefix in prefixes {
+            let contexts = self
+                .get_all(&prefix)
+                .await
+                .map_err(|error| StateStorageError(Box::new(error)))?;
+
+            let user_id = match prefix.replace("-ctx", "").parse::<u64>() {
+                Ok(user_id) => user_id,
+                Err(_) => {
+                    continue;
+                }
+            };
+
+            for request_id in contexts
+                .keys()
+                .cloned()
+                .filter_map(|request_id| request_id.parse::<Uuid>().ok())
+            {
+                tasks.push((UserId(user_id), RequestId(request_id)));
+            }
+        }
+
+        Ok(tasks)
+    }
 }
 
 #[async_trait]
