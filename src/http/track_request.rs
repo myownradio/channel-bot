@@ -6,7 +6,7 @@ use crate::types::UserId;
 use actix_web::{web, HttpResponse, Responder};
 use serde::Deserialize;
 use std::sync::Arc;
-use tracing::error;
+use tracing::{error, info};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -45,7 +45,7 @@ pub(crate) struct MakeTracksSuggestionData {
 }
 
 pub(crate) async fn make_tracks_suggestion(
-    track_request_processor: web::Data<Arc<TrackRequestProcessor>>,
+    track_request_controller: web::Data<Arc<TrackRequestController>>,
     openai_service: web::Data<Arc<OpenAIService>>,
     radio_manager_client: web::Data<Arc<RadioManagerClient>>,
     params: web::Json<MakeTracksSuggestionData>,
@@ -70,16 +70,12 @@ pub(crate) async fn make_tracks_suggestion(
         .await
         .expect("Unable to get suggestions");
 
+    info!("Suggested tracks are: {:?}", suggested_tracks);
+
+    let mut request_ids = vec![];
     for track in suggested_tracks {
-        let request_id = match track_request_processor
-            .create_request(
-                &user_id,
-                &track,
-                &CreateRequestOptions {
-                    validate_metadata: false,
-                },
-                &query.target_channel_id,
-            )
+        let request_id = match track_request_controller
+            .create_request(&user_id, &track, &query.target_channel_id)
             .await
         {
             Ok(request_id) => request_id,
@@ -88,20 +84,10 @@ pub(crate) async fn make_tracks_suggestion(
                 return HttpResponse::InternalServerError().finish();
             }
         };
-
-        match track_request_processor
-            .process_request(&user_id, &request_id)
-            .await
-        {
-            Ok(()) => (),
-            Err(error) => {
-                error!(?error, "Unable to process track request");
-                return HttpResponse::InternalServerError().finish();
-            }
-        }
+        request_ids.push(request_id);
     }
 
-    HttpResponse::Ok().finish()
+    HttpResponse::Accepted().json(serde_json::json!({ "requestIds": request_ids }))
 }
 
 pub(crate) async fn get_track_request_statuses(
