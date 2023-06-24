@@ -227,7 +227,20 @@ impl StateStorageTrait for OnDiskStorage {
                 .cloned()
                 .filter_map(|request_id| request_id.parse::<Uuid>().ok())
             {
-                tasks.push((UserId(user_id), RequestId(request_id)));
+                let status = self
+                    .get(&format!("{}-status", user_id), &request_id.to_string())
+                    .await
+                    .map_err(|error| StateStorageError(Box::new(error)))?
+                    .and_then(|status| {
+                        serde_json::from_str::<TrackRequestProcessingStatus>(&status).ok()
+                    });
+
+                match status {
+                    Some(TrackRequestProcessingStatus::Processing) | None => {
+                        tasks.push((UserId(user_id), RequestId(request_id)));
+                    }
+                    _ => (),
+                }
             }
         }
 
