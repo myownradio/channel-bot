@@ -6,7 +6,7 @@ use crate::services::track_request_processor::{
 use crate::services::TrackRequestProcessor;
 use crate::types::UserId;
 use std::sync::Arc;
-use tracing::error;
+use tracing::{debug, error, info};
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum TrackRequestControllerError {
@@ -29,8 +29,10 @@ impl TrackRequestController {
             track_request_processor,
         };
 
+        debug!("Loading tasks...");
         let tasks = state_storage.get_all_tasks().await?;
 
+        info!("Spawning {} track request tasks...", tasks.len());
         for (user_id, request_id) in tasks {
             controller.spawn_task(&user_id, &request_id);
         }
@@ -41,14 +43,14 @@ impl TrackRequestController {
     pub(crate) async fn create_request(
         &self,
         user_id: &UserId,
-        metadata: &AudioMetadata,
+        track_metadata: &AudioMetadata,
         target_channel_id: &RadioManagerChannelId,
-    ) -> Result<(), TrackRequestControllerError> {
+    ) -> Result<RequestId, TrackRequestControllerError> {
         let request_id = self
             .track_request_processor
             .create_request(
                 user_id,
-                metadata,
+                track_metadata,
                 &CreateRequestOptions {
                     validate_metadata: false,
                 },
@@ -58,7 +60,7 @@ impl TrackRequestController {
 
         self.spawn_task(&user_id, &request_id);
 
-        Ok(())
+        Ok(request_id)
     }
 
     fn spawn_task(&self, user_id: &UserId, request_id: &RequestId) {

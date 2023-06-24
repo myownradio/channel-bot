@@ -28,6 +28,7 @@ impl std::fmt::Display for RequestId {
 }
 
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct AudioMetadata {
     pub(crate) title: String,
     pub(crate) artist: String,

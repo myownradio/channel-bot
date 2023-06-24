@@ -9,6 +9,7 @@ use std::sync::Arc;
 use tracing::error;
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct MakeTrackRequestData {
     #[serde(flatten)]
     metadata: AudioMetadata,
@@ -22,15 +23,20 @@ pub(crate) async fn make_track_request(
     let query = params.into_inner();
     let user_id = UserId(1); // Not used yet
 
-    if let Err(error) = track_request_controller
+    let request_id = match track_request_controller
         .create_request(&user_id, &query.metadata, &query.target_channel_id)
         .await
     {
-        error!(?error, "Unable to create track request");
-        return HttpResponse::InternalServerError().finish();
-    }
+        Err(error) => {
+            error!(?error, "Unable to create track request");
+            return HttpResponse::InternalServerError().finish();
+        }
+        Ok(request_id) => request_id,
+    };
 
-    HttpResponse::Accepted().finish()
+    HttpResponse::Accepted().json(serde_json::json!({
+        "requestId": request_id,
+    }))
 }
 
 #[derive(Deserialize)]
