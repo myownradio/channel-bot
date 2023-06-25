@@ -196,7 +196,7 @@ struct SearchProviderMock;
 
 #[async_trait]
 impl SearchProviderTrait for SearchProviderMock {
-    async fn search_music(&self, query: &str) -> Result<Vec<TopicData>, SearchProviderError> {
+    async fn find_all(&self, query: &str) -> Result<Vec<TopicData>, SearchProviderError> {
         match query {
             "Ted Irens - Foo" => Ok(vec![
                 TopicData {
@@ -336,7 +336,7 @@ async fn test_create_track_request() {
         .unwrap();
     assert_eq!(
         stored_state.get_step(),
-        TrackRequestProcessingStep::SearchAudioAlbum
+        TrackRequestProcessingStep::GetTopicsIntoQueue
     );
 }
 

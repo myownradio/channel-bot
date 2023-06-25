@@ -1,14 +1,15 @@
 use crate::services::torrent_parser::{get_files, TorrentParserError};
 use crate::types::UserId;
-use crate::utils::contains_ignore_case;
+use crate::utils::{contains_ignore_case, contains_in_filename_ignore_case};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 use std::io::ErrorKind;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -128,7 +129,7 @@ impl std::fmt::Display for TorrentId {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub(crate) struct TopicData {
     pub(crate) topic_id: TopicId,
     pub(crate) download_id: DownloadId,
@@ -170,8 +171,7 @@ impl TrackRequestProcessingContext {
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub(crate) struct TrackRequestProcessingState {
-    pub(crate) tried_topics: Vec<TopicId>,
-    pub(crate) current_download_id: Option<DownloadId>,
+    pub(crate) topics_queue: Option<Vec<TopicData>>,
     pub(crate) current_torrent_data: Option<Vec<u8>>,
     pub(crate) current_torrent_id: Option<TorrentId>,
     pub(crate) path_to_downloaded_file: Option<String>,
@@ -181,12 +181,12 @@ pub(crate) struct TrackRequestProcessingState {
 
 impl TrackRequestProcessingState {
     pub(crate) fn get_step(&self) -> TrackRequestProcessingStep {
-        if self.current_download_id.is_none() {
-            TrackRequestProcessingStep::SearchAudioAlbum
+        if self.topics_queue.is_none() {
+            TrackRequestProcessingStep::GetTopicsIntoQueue
         } else if self.current_torrent_data.is_none() {
-            TrackRequestProcessingStep::DownloadTorrentFile
+            TrackRequestProcessingStep::DownloadNextTorrentFile
         } else if self.current_torrent_id.is_none() {
-            TrackRequestProcessingStep::DownloadAlbum
+            TrackRequestProcessingStep::Download
         } else if self.path_to_downloaded_file.is_none() {
             TrackRequestProcessingStep::CheckDownloadStatus
         } else if self.radio_manager_track_id.is_none() {
@@ -201,9 +201,9 @@ impl TrackRequestProcessingState {
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum TrackRequestProcessingStep {
-    SearchAudioAlbum,
-    DownloadTorrentFile,
-    DownloadAlbum,
+    GetTopicsIntoQueue,
+    DownloadNextTorrentFile,
+    Download,
     CheckDownloadStatus,
     UploadToRadioManager,
     AddToRadioManagerChannel,
@@ -300,7 +300,7 @@ impl std::fmt::Display for StateStorageError {
 
 #[async_trait]
 pub(crate) trait SearchProviderTrait {
-    async fn search_music(&self, query: &str) -> Result<Vec<TopicData>, SearchProviderError>;
+    async fn find_all(&self, query: &str) -> Result<Vec<TopicData>, SearchProviderError>;
     async fn download_torrent(
         &self,
         download_id: &DownloadId,
@@ -541,15 +541,15 @@ impl TrackRequestProcessor {
         debug!("Running processing step: {:?}", step);
 
         match step {
-            TrackRequestProcessingStep::SearchAudioAlbum => {
-                self.search_audio_album(user_id, request_id, ctx, state)
+            TrackRequestProcessingStep::GetTopicsIntoQueue => {
+                self.get_topics_into_queue(user_id, request_id, ctx, state)
                     .await?;
             }
-            TrackRequestProcessingStep::DownloadTorrentFile => {
-                self.download_torrent_file(user_id, ctx, state).await?;
+            TrackRequestProcessingStep::DownloadNextTorrentFile => {
+                self.download_next_torrent_file(user_id, ctx, state).await?;
             }
-            TrackRequestProcessingStep::DownloadAlbum => {
-                self.download_album(user_id, ctx, state).await?;
+            TrackRequestProcessingStep::Download => {
+                self.download(user_id, ctx, state).await?;
             }
             TrackRequestProcessingStep::CheckDownloadStatus => {
                 self.check_download_status(user_id, ctx, state).await?;
@@ -567,89 +567,77 @@ impl TrackRequestProcessor {
         Ok(())
     }
 
-    async fn search_audio_album(
+    async fn get_topics_into_queue(
         &self,
         _user_id: &UserId,
         _request_id: &RequestId,
         ctx: &TrackRequestProcessingContext,
         state: &mut TrackRequestProcessingState,
     ) -> Result<(), ProcessRequestError> {
-        let queries_to_try = vec![
+        let queries = vec![
             format!("{} - {}", ctx.metadata.artist, ctx.metadata.album),
             format!("{} дискография", ctx.metadata.artist),
             format!("{} discography", ctx.metadata.artist),
             format!("{} дискографія", ctx.metadata.artist),
         ];
 
-        let tried_topics_set = state.tried_topics.iter().collect::<HashSet<_>>();
-        for query in queries_to_try {
-            info!("Searching the Internet for \"{}\"...", query);
+        let mut found_results = vec![];
 
-            let new_results: Vec<_> = self
-                .search_provider
-                .search_music(&query)
-                .await?
-                .into_iter()
-                .filter(|r| !tried_topics_set.contains(&r.topic_id))
-                .collect();
-            info!("Found {} new search results...", new_results.len());
+        for query in queries {
+            let mut results = self.search_provider.find_all(&query).await?;
 
-            let topic = match new_results.into_iter().next() {
-                Some(topic) => topic,
-                None => {
-                    continue;
-                }
-            };
+            info!("Searching for \"{}\": {} result(s)", query, results.len());
 
-            info!("This time we'll try with {}...", topic.title);
-
-            state.current_download_id.replace(topic.download_id);
-            state.tried_topics.push(topic.topic_id);
-
-            return Ok(());
+            found_results.append(&mut results);
         }
 
-        error!(
-            "No more search results... The requested track {} has not been found.",
-            ctx.metadata
-        );
+        found_results.dedup_by_key(|topic| *topic.topic_id);
 
-        Err(ProcessRequestError::TrackNotFound)
+        found_results.reverse();
+
+        info!("Found {} unique result(s)", found_results.len());
+
+        state.topics_queue.replace(found_results);
+
+        Ok(())
     }
 
-    async fn download_torrent_file(
+    async fn download_next_torrent_file(
         &self,
         _user_id: &UserId,
         ctx: &TrackRequestProcessingContext,
         state: &mut TrackRequestProcessingState,
     ) -> Result<(), ProcessRequestError> {
-        let download_id = state
-            .current_download_id
-            .clone()
-            .take()
-            .expect("current_download_id should be defined");
+        let topic = match state.topics_queue.as_mut().and_then(Vec::pop) {
+            Some(topic) => topic,
+            None => {
+                return Err(ProcessRequestError::TrackNotFound);
+            }
+        };
 
-        info!("Downloading torrent file...");
+        info!(
+            "Downloading torrent file {} ({})...",
+            topic.download_id, topic.title
+        );
 
-        let torrent_data = self.search_provider.download_torrent(&download_id).await?;
+        let torrent_data = self
+            .search_provider
+            .download_torrent(&topic.download_id)
+            .await?;
         let files_in_torrent = get_files(&torrent_data)?;
 
-        if files_in_torrent.into_iter().any(|filepath| {
-            match filepath.split(std::path::MAIN_SEPARATOR_STR).last() {
-                Some(filename) => contains_ignore_case(&filename, &ctx.metadata.title),
-                None => false,
-            }
-        }) {
+        if files_in_torrent
+            .into_iter()
+            .any(|filepath| contains_in_filename_ignore_case(&filepath, &ctx.metadata.title))
+        {
             info!("Downloaded torrent file seems to have the requested track...");
             state.current_torrent_data.replace(torrent_data);
-        } else {
-            state.current_download_id.take();
         }
 
         Ok(())
     }
 
-    async fn download_album(
+    async fn download(
         &self,
         _user_id: &UserId,
         ctx: &TrackRequestProcessingContext,
@@ -666,11 +654,10 @@ impl TrackRequestProcessor {
             .into_iter()
             .enumerate()
             .filter_map(|(index, filepath)| {
-                match filepath.split(std::path::MAIN_SEPARATOR_STR).last() {
-                    Some(filename) if contains_ignore_case(filename, &ctx.metadata.title) => {
-                        Some(index as i32)
-                    }
-                    _ => None,
+                if contains_in_filename_ignore_case(&filepath, &ctx.metadata.title) {
+                    Some(index as i32)
+                } else {
+                    None
                 }
             })
             .collect();
@@ -711,21 +698,18 @@ impl TrackRequestProcessor {
             return Ok(());
         }
 
-        debug!(%torrent_id, "Download complete. Checking files metadata...");
+        debug!(%torrent_id, "Download complete");
 
         for filepath in torrent.files {
-            match filepath.split(std::path::MAIN_SEPARATOR_STR).last() {
-                Some(filename) if contains_ignore_case(filename, &ctx.metadata.title) => {
-                    info!("Found matching audio file: {}", filepath);
-                    state.path_to_downloaded_file.replace(filepath);
-                    return Ok(());
-                }
-                _ => (),
+            if contains_in_filename_ignore_case(&filepath, &ctx.metadata.title) {
+                info!("Found matching file: {}", filepath);
+                state.path_to_downloaded_file.replace(filepath);
+                return Ok(());
             }
         }
 
-        info!("Downloaded torrent does not have the requested audio track");
-        state.current_download_id.take();
+        warn!("Downloaded torrent does not have the requested audio track");
+
         state.current_torrent_id.take();
         state.current_torrent_data.take();
 
