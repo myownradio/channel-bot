@@ -129,25 +129,11 @@ impl std::fmt::Display for TorrentId {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub(crate) struct TopicData {
     pub(crate) topic_id: TopicId,
     pub(crate) download_id: DownloadId,
     pub(crate) title: String,
-}
-
-impl PartialEq for TopicData {
-    fn eq(&self, other: &Self) -> bool {
-        self.topic_id == other.topic_id
-    }
-}
-
-impl Eq for TopicData {}
-
-impl Hash for TopicData {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.topic_id.hash(state)
-    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
