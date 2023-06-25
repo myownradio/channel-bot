@@ -1,8 +1,8 @@
 use super::track_request_processor::{
-    AudioMetadata, DownloadId, MetadataServiceError, MetadataServiceTrait, RadioManagerChannelId,
-    RadioManagerClientError, RadioManagerClientTrait, RadioManagerLinkId, RadioManagerTrackId,
-    RequestId, SearchProviderError, SearchProviderTrait, StateStorageError, StateStorageTrait,
-    TopicData, TopicId, Torrent, TorrentClientError, TorrentClientTrait, TorrentId, TorrentStatus,
+    AudioMetadata, DownloadId, RadioManagerChannelId, RadioManagerClientError,
+    RadioManagerClientTrait, RadioManagerLinkId, RadioManagerTrackId, RequestId,
+    SearchProviderError, SearchProviderTrait, StateStorageError, StateStorageTrait, TopicData,
+    TopicId, Torrent, TorrentClientError, TorrentClientTrait, TorrentId, TorrentStatus,
     TrackRequestProcessingContext, TrackRequestProcessingState, TrackRequestProcessingStep,
     TrackRequestProcessor,
 };
@@ -257,30 +257,6 @@ impl TorrentClientTrait for TorrentClientMock {
     }
 }
 
-struct MetadataServiceMock;
-
-#[async_trait]
-impl MetadataServiceTrait for MetadataServiceMock {
-    async fn get_audio_metadata(
-        &self,
-        file_path: &str,
-    ) -> Result<Option<AudioMetadata>, MetadataServiceError> {
-        match file_path {
-            "path/to/track01.mp3" => Ok(Some(AudioMetadata {
-                title: "Fable".into(),
-                artist: "Robert Miles".into(),
-                album: "Dreamland".into(),
-            })),
-            "path/to/track02.mp3" => Ok(Some(AudioMetadata {
-                title: "Children".into(),
-                artist: "Robert Miles".into(),
-                album: "Children".into(),
-            })),
-            _ => Ok(None),
-        }
-    }
-}
-
 struct RadioManagerMock;
 
 #[async_trait]
@@ -323,7 +299,6 @@ async fn test_create_track_request() {
         state_storage.clone(),
         Arc::new(SearchProviderMock),
         Arc::new(TorrentClientMock),
-        Arc::new(MetadataServiceMock),
         Arc::new(RadioManagerMock),
         "downloads".to_string(),
     );
@@ -371,7 +346,6 @@ async fn test_processing_track_request() {
         Arc::from(StateStorageMock::new()),
         Arc::from(SearchProviderMock),
         Arc::from(TorrentClientMock),
-        Arc::from(MetadataServiceMock),
         Arc::from(RadioManagerMock),
         "downloads".into(),
     );

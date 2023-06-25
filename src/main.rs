@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::services::track_request_processor::TrackRequestController;
 use crate::services::{
-    MetadataService, OpenAIService, RadioManagerClient, TrackRequestProcessor, TransmissionClient,
+    OpenAIService, RadioManagerClient, TrackRequestProcessor, TransmissionClient,
 };
 use crate::storage::on_disk::OnDiskStorage;
 use actix_rt::signal::unix;
@@ -56,14 +56,12 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("Unable to initialize RadioManager client"),
     );
-    let metadata_service = MetadataService::new();
 
     let track_request_processor = {
         Arc::new(TrackRequestProcessor::new(
             state_storage.clone(),
             Arc::from(rutracker_client),
             Arc::from(transmission_client),
-            Arc::from(metadata_service),
             radio_manager_client.clone(),
             config.download_directory.clone(),
         ))
