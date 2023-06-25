@@ -34,7 +34,7 @@ fn should_return_download_album_if_current_url_is_set() {
         ..TrackRequestProcessingState::default()
     };
 
-    assert_eq!(state.get_step(), TrackRequestProcessingStep::DownloadAlbum)
+    assert_eq!(state.get_step(), TrackRequestProcessingStep::Download)
 }
 
 #[test]

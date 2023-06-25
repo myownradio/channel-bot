@@ -301,7 +301,7 @@ impl Into<TopicData> for search_providers::TopicData {
 
 #[async_trait]
 impl SearchProviderTrait for RuTrackerClient {
-    async fn search_music(&self, query: &str) -> Result<Vec<TopicData>, SearchProviderError> {
+    async fn find_all(&self, query: &str) -> Result<Vec<TopicData>, SearchProviderError> {
         self.search_music(query)
             .await
             .map(|results| results.into_iter().map(Into::into).collect())
