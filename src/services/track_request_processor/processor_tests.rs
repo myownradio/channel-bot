@@ -336,7 +336,7 @@ async fn test_create_track_request() {
         .unwrap();
     assert_eq!(
         stored_state.get_step(),
-        TrackRequestProcessingStep::SearchAudioAlbum
+        TrackRequestProcessingStep::GetTopicsIntoQueue
     );
 }
 
