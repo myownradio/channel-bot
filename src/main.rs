@@ -17,6 +17,7 @@ mod impls;
 mod services;
 mod storage;
 mod types;
+mod utils;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 

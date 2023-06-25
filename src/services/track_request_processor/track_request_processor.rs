@@ -1,5 +1,6 @@
 use crate::services::torrent_parser::{get_files, TorrentParserError};
 use crate::types::UserId;
+use crate::utils::contains_ignore_case;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -633,9 +634,11 @@ impl TrackRequestProcessor {
         let torrent_data = self.search_provider.download_torrent(&download_id).await?;
         let files_in_torrent = get_files(&torrent_data)?;
 
-        if files_in_torrent.into_iter().any(|f| {
-            f.to_lowercase()
-                .contains(&ctx.metadata.title.to_lowercase())
+        if files_in_torrent.into_iter().any(|filepath| {
+            match filepath.split(std::path::MAIN_SEPARATOR_STR).last() {
+                Some(filename) => contains_ignore_case(&filename, &ctx.metadata.title),
+                None => false,
+            }
         }) {
             info!("Downloaded torrent file seems to have the requested track...");
             state.current_torrent_data.replace(torrent_data);
@@ -659,12 +662,17 @@ impl TrackRequestProcessor {
             .expect("current_torrent_data should be defined");
 
         let files_in_torrent = get_files(&torrent_data)?;
-        let track_title_lc = ctx.metadata.title.to_lowercase();
         let selected_files: Vec<_> = files_in_torrent
             .into_iter()
             .enumerate()
-            .filter(|(index, file_path)| file_path.to_lowercase().contains(&track_title_lc))
-            .map(|(index, _)| index as i32)
+            .filter_map(|(index, filepath)| {
+                match filepath.split(std::path::MAIN_SEPARATOR_STR).last() {
+                    Some(filename) if contains_ignore_case(filename, &ctx.metadata.title) => {
+                        Some(index as i32)
+                    }
+                    _ => None,
+                }
+            })
             .collect();
 
         debug!("Adding torrent to the torrent client...");
@@ -705,14 +713,14 @@ impl TrackRequestProcessor {
 
         debug!(%torrent_id, "Download complete. Checking files metadata...");
 
-        let title_lc = ctx.metadata.title.to_lowercase();
-        let artist_lc = ctx.metadata.artist.to_lowercase();
-
-        for file in torrent.files {
-            if file.to_lowercase().contains(&title_lc) {
-                info!("Found matching audio file: {}", file);
-                state.path_to_downloaded_file.replace(file);
-                return Ok(());
+        for filepath in torrent.files {
+            match filepath.split(std::path::MAIN_SEPARATOR_STR).last() {
+                Some(filename) if contains_ignore_case(filename, &ctx.metadata.title) => {
+                    info!("Found matching audio file: {}", filepath);
+                    state.path_to_downloaded_file.replace(filepath);
+                    return Ok(());
+                }
+                _ => (),
             }
         }
 
