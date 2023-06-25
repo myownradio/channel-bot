@@ -186,6 +186,10 @@ impl StateStorageTrait for StateStorageMock {
     ) -> Result<HashMap<RequestId, TrackRequestProcessingStatus>, StateStorageError> {
         Ok(HashMap::new())
     }
+
+    async fn get_all_tasks(&self) -> Result<Vec<(UserId, RequestId)>, StateStorageError> {
+        todo!()
+    }
 }
 
 struct SearchProviderMock;
@@ -194,14 +198,14 @@ struct SearchProviderMock;
 impl SearchProviderTrait for SearchProviderMock {
     async fn search_music(&self, query: &str) -> Result<Vec<TopicData>, SearchProviderError> {
         match query {
-            "Robert Miles - Children" => Ok(vec![
+            "Ted Irens - Foo" => Ok(vec![
                 TopicData {
-                    title: "Robert Miles - Children [MP3]".into(),
+                    title: "Ted Irens - Foo [MP3]".into(),
                     topic_id: TopicId(1),
                     download_id: DownloadId(1),
                 },
                 TopicData {
-                    title: "Robert Miles - Children [FLAC]".into(),
+                    title: "Ted Irens - Foo [FLAC]".into(),
                     topic_id: TopicId(2),
                     download_id: DownloadId(2),
                 },
@@ -215,7 +219,7 @@ impl SearchProviderTrait for SearchProviderMock {
         download_id: &DownloadId,
     ) -> Result<Vec<u8>, SearchProviderError> {
         match **download_id {
-            1 => Ok(vec![1]),
+            1 => Ok(include_bytes!("../../../tests/fixtures/example.torrent").to_vec()),
             _ => Err(SearchProviderError(Box::new(Error::from(
                 ErrorKind::NotFound,
             )))),
@@ -227,18 +231,22 @@ struct TorrentClientMock;
 
 #[async_trait]
 impl TorrentClientTrait for TorrentClientMock {
-    async fn add_torrent(&self, url: Vec<u8>) -> Result<TorrentId, TorrentClientError> {
-        match url[..] {
-            [1] => Ok(TorrentId(1)),
-            _ => todo!(),
-        }
+    async fn add_torrent(
+        &self,
+        url: Vec<u8>,
+        selected_files_indexes: Vec<i32>,
+    ) -> Result<TorrentId, TorrentClientError> {
+        Ok(TorrentId(1))
     }
 
     async fn get_torrent(&self, torrent_id: &TorrentId) -> Result<Torrent, TorrentClientError> {
         match **torrent_id {
             1 => Ok(Torrent {
                 status: TorrentStatus::Complete,
-                files: vec!["path/to/track01.mp3".into(), "path/to/track02.mp3".into()],
+                files: vec![
+                    "path/to/01 - Sunday Breakfast.mp3".into(),
+                    "path/to/track02.mp3".into(),
+                ],
             }),
             _ => todo!(),
         }
@@ -283,7 +291,7 @@ impl RadioManagerClientTrait for RadioManagerMock {
         path_to_audio_file: &str,
     ) -> Result<RadioManagerTrackId, RadioManagerClientError> {
         match path_to_audio_file {
-            "downloads/path/to/track02.mp3" => Ok(RadioManagerTrackId(1)),
+            "downloads/path/to/01 - Sunday Breakfast.mp3" => Ok(RadioManagerTrackId(1)),
             _ => Err(RadioManagerClientError(Box::new(Error::from(
                 ErrorKind::NotFound,
             )))),
@@ -321,9 +329,9 @@ async fn test_create_track_request() {
     );
     let user_id = 1.into();
     let metadata = AudioMetadata {
-        title: "Children".into(),
-        artist: "Robert Miles".into(),
-        album: "Children".into(),
+        title: "Sunday Breakfast".into(),
+        artist: "Ted Irens".into(),
+        album: "Foo".into(),
     };
     let channel_id = RadioManagerChannelId(1);
     let request_id = processor
@@ -342,9 +350,9 @@ async fn test_create_track_request() {
         .load_context(&user_id, &request_id)
         .await
         .unwrap();
-    assert_eq!(stored_context.metadata.title, "Children");
-    assert_eq!(stored_context.metadata.artist, "Robert Miles");
-    assert_eq!(stored_context.metadata.album, "Children");
+    assert_eq!(stored_context.metadata.title, "Sunday Breakfast");
+    assert_eq!(stored_context.metadata.artist, "Ted Irens");
+    assert_eq!(stored_context.metadata.album, "Foo");
     assert_eq!(stored_context.target_channel_id, channel_id);
 
     let stored_state = state_storage
@@ -369,9 +377,9 @@ async fn test_processing_track_request() {
     );
     let user_id = UserId(1);
     let metadata = AudioMetadata {
-        title: "Children".into(),
-        artist: "Robert Miles".into(),
-        album: "Children".into(),
+        title: "Sunday Breakfast".into(),
+        artist: "Ted Irens".into(),
+        album: "Foo".into(),
     };
     let channel_id = RadioManagerChannelId(1);
     let request_id = processor
@@ -379,7 +387,7 @@ async fn test_processing_track_request() {
             &user_id,
             &metadata,
             &CreateRequestOptions {
-                validate_metadata: true,
+                validate_metadata: false,
             },
             &channel_id,
         )
