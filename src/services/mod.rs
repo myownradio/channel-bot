@@ -1,6 +1,3 @@
-pub(crate) mod metadata_service;
-pub(crate) use metadata_service::*;
-
 pub(crate) mod transmission_client;
 pub(crate) use transmission_client::*;
 

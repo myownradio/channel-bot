@@ -336,23 +336,6 @@ impl std::fmt::Display for TorrentClientError {
 }
 
 #[async_trait]
-pub(crate) trait MetadataServiceTrait {
-    async fn get_audio_metadata(
-        &self,
-        file_path: &str,
-    ) -> Result<Option<AudioMetadata>, MetadataServiceError>;
-}
-
-#[derive(Debug, thiserror::Error)]
-pub(crate) struct MetadataServiceError(pub(crate) Box<dyn std::error::Error>);
-
-impl std::fmt::Display for MetadataServiceError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-#[async_trait]
 pub(crate) trait RadioManagerClientTrait {
     async fn upload_audio_track(
         &self,
@@ -384,7 +367,6 @@ pub(crate) struct TrackRequestProcessor {
     state_storage: Arc<dyn StateStorageTrait + Send + Sync + 'static>,
     search_provider: Arc<dyn SearchProviderTrait + Send + Sync + 'static>,
     torrent_client: Arc<dyn TorrentClientTrait + Send + Sync + 'static>,
-    metadata_service: Arc<dyn MetadataServiceTrait + Send + Sync + 'static>,
     radio_manager_client: Arc<dyn RadioManagerClientTrait + Send + Sync + 'static>,
     download_directory: String,
 }
@@ -404,8 +386,6 @@ pub(crate) enum ProcessRequestError {
     #[error(transparent)]
     DownloaderError(#[from] TorrentClientError),
     #[error(transparent)]
-    MetadataServiceError(#[from] MetadataServiceError),
-    #[error(transparent)]
     RadioManagerError(#[from] RadioManagerClientError),
     #[error(transparent)]
     TorrentParserError(#[from] TorrentParserError),
@@ -423,7 +403,6 @@ impl TrackRequestProcessor {
         state_storage: Arc<dyn StateStorageTrait + Send + Sync + 'static>,
         search_provider: Arc<dyn SearchProviderTrait + Send + Sync + 'static>,
         torrent_client: Arc<dyn TorrentClientTrait + Send + Sync + 'static>,
-        metadata_service: Arc<dyn MetadataServiceTrait + Send + Sync + 'static>,
         radio_manager_client: Arc<dyn RadioManagerClientTrait + Send + Sync + 'static>,
         download_directory: String,
     ) -> Self {
@@ -431,7 +410,6 @@ impl TrackRequestProcessor {
             state_storage,
             search_provider,
             torrent_client,
-            metadata_service,
             radio_manager_client,
             download_directory,
         }
@@ -731,25 +709,10 @@ impl TrackRequestProcessor {
         let artist_lc = ctx.metadata.artist.to_lowercase();
 
         for file in torrent.files {
-            if ctx.options.validate_metadata {
-                let metadata = match self.metadata_service.get_audio_metadata(&file).await {
-                    Ok(Some(metadata)) => metadata,
-                    _ => continue,
-                };
-
-                if metadata.artist.to_lowercase().starts_with(&artist_lc)
-                    && metadata.title.to_lowercase().starts_with(&title_lc)
-                {
-                    info!("Found matching audio file: {}", file);
-                    state.path_to_downloaded_file.replace(file);
-                    return Ok(());
-                }
-            } else {
-                if file.to_lowercase().contains(&title_lc) {
-                    info!("Found matching audio file: {}", file);
-                    state.path_to_downloaded_file.replace(file);
-                    return Ok(());
-                }
+            if file.to_lowercase().contains(&title_lc) {
+                info!("Found matching audio file: {}", file);
+                state.path_to_downloaded_file.replace(file);
+                return Ok(());
             }
         }
 
