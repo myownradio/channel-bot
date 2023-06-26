@@ -5,6 +5,7 @@ use serde_bytes::ByteBuf;
 struct Node(String, i64);
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct File {
     path: Vec<String>,
     length: i64,
@@ -12,6 +13,7 @@ struct File {
     md5sum: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct Info {
     name: String,
@@ -33,6 +35,7 @@ struct Info {
     root_hash: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct Torrent {
     info: Info,
