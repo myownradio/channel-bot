@@ -32,12 +32,12 @@ impl OnDiskStorage {
     ) -> Result<HashMap<String, String>, std::io::Error> {
         let path = format!("{}/{}", self.path, prefix);
 
-        let mut map = HashMap::new();
-
         let mut dir_reader = match tokio::fs::read_dir(&path).await {
             Ok(reader) => reader,
             Err(_) => return Ok(HashMap::new()),
         };
+
+        let mut map = HashMap::new();
 
         while let Some(dir) = dir_reader.next_entry().await? {
             let filename = dir.file_name().to_str().unwrap_or_default().to_string();
@@ -49,12 +49,12 @@ impl OnDiskStorage {
     }
 
     pub(crate) async fn get_prefixes(&self) -> Result<Vec<String>, std::io::Error> {
-        let mut prefixes = vec![];
-
         let mut dir_reader = match tokio::fs::read_dir(&self.path).await {
             Ok(reader) => reader,
             Err(_) => return Ok(vec![]),
         };
+
+        let mut prefixes = vec![];
 
         while let Some(dir) = dir_reader.next_entry().await? {
             let filename = dir.file_name().to_str().unwrap_or_default().to_string();
