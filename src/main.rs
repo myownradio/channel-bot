@@ -9,7 +9,7 @@ use actix_web::web::Data;
 use actix_web::{web, App, HttpServer};
 use futures_lite::FutureExt;
 use std::sync::Arc;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 mod config;
 mod http;
@@ -33,21 +33,28 @@ async fn main() -> std::io::Result<()> {
 
     info!("Starting application...");
 
+    debug!("Init state storage...");
     let state_storage = Arc::from(OnDiskStorage::create(
         config.state_storage_directory.clone(),
     ));
+
+    debug!("Init rutracker client...");
     let rutracker_client = search_providers::RuTrackerClient::create(
         &config.rutracker.username,
         &config.rutracker.password,
     )
     .await
     .expect("Unable to initialize RuTracker client");
+
+    debug!("Init transmission client...");
     let transmission_client = TransmissionClient::create(
         config.transmission.transmission_rpc_endpoint.clone(),
         config.transmission.username.clone(),
         config.transmission.password.clone(),
         config.transmission.download_directory.clone(),
     );
+
+    debug!("Init radio manager client...");
     let radio_manager_client = Arc::new(
         RadioManagerClient::create(
             &config.radiomanager.endpoint,
@@ -58,6 +65,7 @@ async fn main() -> std::io::Result<()> {
         .expect("Unable to initialize RadioManager client"),
     );
 
+    debug!("Init track request processor...");
     let track_request_processor = {
         Arc::new(TrackRequestProcessor::new(
             state_storage.clone(),
@@ -67,16 +75,21 @@ async fn main() -> std::io::Result<()> {
             config.download_directory.clone(),
         ))
     };
+
+    debug!("Init track request controller...");
     let track_request_controller = Arc::new(
         TrackRequestController::create(state_storage.clone(), track_request_processor.clone())
             .await
             .expect("Unable to initialize TrackRequestController"),
     );
+
+    debug!("Init OpenAI client...");
     let openai_service = Arc::new(OpenAIService::create(config.openai_api_key.clone()));
 
     let shutdown_timeout = config.shutdown_timeout.clone();
     let bind_address = config.bind_address.clone();
 
+    debug!("Init http server...");
     let server = HttpServer::new({
         move || {
             App::new()
