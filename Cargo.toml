@@ -1,7 +1,8 @@
 [package]
-name = "myownradio-channel-bot"
+name = "channel-bot"
 version = "0.1.0"
 edition = "2021"
+authors = ["Roman Lakhtadyr <roman.lakhtadyr@gmail.com>"]
 
 [workspace]
 members = ["crates/*"]

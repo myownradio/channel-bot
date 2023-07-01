@@ -368,6 +368,35 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "channel-bot"
+version = "0.1.0"
+dependencies = [
+ "actix-rt",
+ "actix-web",
+ "async-lock",
+ "async-trait",
+ "base64",
+ "dotenv",
+ "env_logger",
+ "envy",
+ "futures-lite",
+ "mime_guess",
+ "reqwest",
+ "scraper",
+ "search-providers",
+ "serde",
+ "serde_bencode",
+ "serde_bytes",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "transmission-rpc",
+ "uuid",
+]
+
+[[package]]
 name = "convert_case"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1156,35 +1185,6 @@ dependencies = [
  "log",
  "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "myownradio-channel-bot"
-version = "0.1.0"
-dependencies = [
- "actix-rt",
- "actix-web",
- "async-lock",
- "async-trait",
- "base64",
- "dotenv",
- "env_logger",
- "envy",
- "futures-lite",
- "mime_guess",
- "reqwest",
- "scraper",
- "search-providers",
- "serde",
- "serde_bencode",
- "serde_bytes",
- "serde_json",
- "thiserror",
- "tokio",
- "tokio-util",
- "tracing",
- "transmission-rpc",
- "uuid",
 ]
 
 [[package]]
