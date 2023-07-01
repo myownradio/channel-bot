@@ -5,5 +5,6 @@ COPY . .
 RUN cargo install --path .
 
 FROM alpine:3
+RUN apk add openssl
 COPY --from=builder /usr/local/cargo/bin/channel-bot /usr/local/bin/channel-bot
 CMD ["channel-bot"]
