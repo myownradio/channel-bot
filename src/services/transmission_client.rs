@@ -147,4 +147,17 @@ impl TransmissionClient {
 
         maybe_torrent.ok_or(TransmissionClientError::NotFound)
     }
+
+    pub(crate) async fn check_connection(&self) -> Result<()> {
+        let RpcResponse {
+            result,
+            arguments: _,
+        } = self.client.lock().await.torrent_get(None, None).await?;
+
+        if result != "success" {
+            return Err(TransmissionClientError::ErroneousResult(result));
+        }
+
+        Ok(())
+    }
 }

@@ -47,12 +47,12 @@ async fn main() -> std::io::Result<()> {
     .expect("Unable to initialize RuTracker client");
 
     debug!("Init transmission client...");
-    let transmission_client = TransmissionClient::create(
+    let transmission_client = Arc::new(TransmissionClient::create(
         config.transmission.transmission_rpc_endpoint.clone(),
         config.transmission.username.clone(),
         config.transmission.password.clone(),
         config.transmission.download_directory.clone(),
-    );
+    ));
 
     debug!("Init radio manager client...");
     let radio_manager_client = Arc::new(
@@ -70,7 +70,7 @@ async fn main() -> std::io::Result<()> {
         Arc::new(TrackRequestProcessor::new(
             state_storage.clone(),
             Arc::from(rutracker_client),
-            Arc::from(transmission_client),
+            transmission_client.clone(),
             radio_manager_client.clone(),
             config.download_directory.clone(),
         ))
@@ -97,11 +97,14 @@ async fn main() -> std::io::Result<()> {
                 .app_data(Data::new(Arc::clone(&track_request_controller)))
                 .app_data(Data::new(Arc::clone(&openai_service)))
                 .app_data(Data::new(Arc::clone(&radio_manager_client)))
+                .app_data(Data::new(Arc::clone(&transmission_client)))
                 .service(web::resource("/").route(web::get().to(http::get_track_request_statuses)))
                 .service(web::resource("/create").route(web::post().to(http::make_track_request)))
                 .service(
                     web::resource("/suggest").route(web::post().to(http::make_tracks_suggestion)),
                 )
+                .route("/health/alive", web::get().to(http::readiness_check))
+                .route("/health/ready", web::get().to(http::readiness_check))
         }
     })
     .shutdown_timeout(shutdown_timeout)
