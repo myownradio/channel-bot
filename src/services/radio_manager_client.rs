@@ -235,4 +235,17 @@ impl RadioManagerClient {
 
         Ok(tracks)
     }
+
+    pub(crate) async fn check_connection(&self) -> Result<(), RadioManagerClientError> {
+        self.client
+            .get(format!("{}api/v2/self", self.endpoint))
+            .send()
+            .await?
+            .error_for_status()?
+            .json::<RadioManagerVoidResponse>()
+            .await?
+            .error_for_code()?;
+
+        Ok(())
+    }
 }
