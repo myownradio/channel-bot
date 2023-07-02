@@ -108,4 +108,22 @@ impl RuTrackerClient {
 
         Ok(response.bytes().await?.to_vec())
     }
+
+    pub async fn check_connection(&self) -> Result<(), RuTrackerClientError> {
+        let response = self
+            .client
+            .get(format!("{}", RU_TRACKER_HOST))
+            .send()
+            .await?;
+        let status = response.status();
+
+        if status != StatusCode::OK {
+            return Err(RuTrackerClientError::BadStatus(status));
+        }
+
+        let raw_html = response.text().await?;
+        parse_and_validate_auth_state(&raw_html)?;
+
+        Ok(())
+    }
 }

@@ -39,12 +39,14 @@ async fn main() -> std::io::Result<()> {
     ));
 
     debug!("Init rutracker client...");
-    let rutracker_client = search_providers::RuTrackerClient::create(
-        &config.rutracker.username,
-        &config.rutracker.password,
-    )
-    .await
-    .expect("Unable to initialize RuTracker client");
+    let rutracker_client = Arc::from(
+        search_providers::RuTrackerClient::create(
+            &config.rutracker.username,
+            &config.rutracker.password,
+        )
+        .await
+        .expect("Unable to initialize RuTracker client"),
+    );
 
     debug!("Init transmission client...");
     let transmission_client = Arc::new(TransmissionClient::create(
@@ -69,7 +71,7 @@ async fn main() -> std::io::Result<()> {
     let track_request_processor = {
         Arc::new(TrackRequestProcessor::new(
             state_storage.clone(),
-            Arc::from(rutracker_client),
+            rutracker_client.clone(),
             transmission_client.clone(),
             radio_manager_client.clone(),
             config.download_directory.clone(),
@@ -98,6 +100,7 @@ async fn main() -> std::io::Result<()> {
                 .app_data(Data::new(Arc::clone(&openai_service)))
                 .app_data(Data::new(Arc::clone(&radio_manager_client)))
                 .app_data(Data::new(Arc::clone(&transmission_client)))
+                .app_data(Data::new(Arc::clone(&rutracker_client)))
                 .service(web::resource("/").route(web::get().to(http::get_track_request_statuses)))
                 .service(web::resource("/create").route(web::post().to(http::make_track_request)))
                 .service(
